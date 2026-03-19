@@ -5,6 +5,34 @@ from pathlib import Path
 import refresh
 
 
+class ConfigLoadingTests(unittest.TestCase):
+    def test_load_projects_reports_actionable_setup_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_script_dir = refresh.SCRIPT_DIR
+            refresh.SCRIPT_DIR = Path(tmpdir)
+            try:
+                with self.assertRaises(FileNotFoundError) as context:
+                    refresh.load_projects()
+            finally:
+                refresh.SCRIPT_DIR = original_script_dir
+
+        self.assertIn("projects.example.json", str(context.exception))
+        self.assertIn("projects.json", str(context.exception))
+
+    def test_build_data_handles_empty_projects_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "projects.json").write_text("[]", encoding="utf-8")
+            original_script_dir = refresh.SCRIPT_DIR
+            refresh.SCRIPT_DIR = root
+            try:
+                data = refresh.build_data()
+            finally:
+                refresh.SCRIPT_DIR = original_script_dir
+
+        self.assertEqual(data["projects"], [])
+
+
 class RoadmapParsingTests(unittest.TestCase):
     def test_extract_section_stops_at_next_heading(self):
         text = """# Intro

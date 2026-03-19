@@ -1,8 +1,10 @@
 [project]
 name = "dd"
 version = "0.1.0"
-description = "Local project dashboard data collector and static UI"
+description = "Local-first project dashboard with a Python collector and static browser UI"
 requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
 dependencies = []
 
 [dependency-groups]

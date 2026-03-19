@@ -30,18 +30,18 @@
 
   <!-- content lines on each card -->
   <rect x="8"  y="6.5" width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
-  <rect x="8"  y="9.5" width="3.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
-  <rect x="8"  y="11"  width="4.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="8"  y="9.5" width="3.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="8"  y="11"  width="4.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
 
   <rect x="22" y="6.5" width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
-  <rect x="22" y="9.5" width="3.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
-  <rect x="22" y="11"  width="4.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="22" y="9.5" width="3.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="22" y="11"  width="4.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
 
-  <rect x="8"  y="20.5"width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
-  <rect x="8"  y="23.5"width="3.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
-  <rect x="8"  y="25"  width="4.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="8"  y="20.5" width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
+  <rect x="8"  y="23.5" width="3.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="8"  y="25"  width="4.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
 
-  <rect x="22" y="20.5"width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
-  <rect x="22" y="23.5"width="3.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
-  <rect x="22" y="25"  width="4.5"height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="22" y="20.5" width="5"  height="1.5" rx="0.75" fill="#1a1a2e" opacity="0.25"/>
+  <rect x="22" y="23.5" width="3.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
+  <rect x="22" y="25"  width="4.5" height="1"   rx="0.5"  fill="#1a1a2e" opacity="0.15"/>
 </svg>

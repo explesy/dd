@@ -25,7 +25,11 @@ def load_projects() -> list[dict]:
     """Load project list from projects.json (next to this script)."""
     cfg_file = SCRIPT_DIR / "projects.json"
     if not cfg_file.exists():
-        raise FileNotFoundError(f"projects.json not found at {cfg_file}")
+        example_file = SCRIPT_DIR / "projects.example.json"
+        raise FileNotFoundError(
+            f"projects.json not found at {cfg_file}. "
+            f"Copy {example_file.name} to {cfg_file.name} and add your local project paths."
+        )
     return json.loads(cfg_file.read_text(encoding="utf-8"))
 
 

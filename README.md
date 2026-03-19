@@ -1,59 +1,52 @@
-# DD — Project Dashboard
+# DD
 
-Локальный дашборд для мониторинга состояния проектов. Собирает git-статус, roadmap, заметки и показывает всё на одном экране.
+Local-first project dashboard for tracking the state of multiple repositories in one browser tab.
 
-## Быстрый старт
+DD collects git status, roadmap progress, and per-project notes, then renders everything in a static HTML/CSS/JS dashboard served by a tiny local Python server.
 
-```fish
-# После source ~/.config/fish/config.fish:
-dd          # refresh + запустить сервер → http://localhost:8787
-ddr         # только refresh (обновить data.json)
-ddw         # watch-режим: refresh каждые 60 сек
-```
+## Scope
 
-`dd`, `ddr` и `ddw` это локальные shell aliases/functions, не часть этого репозитория.
+- Local-only by design
+- No build step
+- No remote sync or multi-user mode
+- Roadmap files can be opened via the local filesystem (`file://`)
 
-Или вручную:
-```sh
-uv run python serve.py --port 8787
-# → открыть http://localhost:8787
-```
-
-## Python tooling
-
-Проект использует `uv` для Python tooling и локального окружения.
+## Quick Start
 
 ```sh
 uv sync --dev
-uv run python refresh.py
-uv run ruff check refresh.py tests
+cp projects.example.json projects.json
+uv run python serve.py --port 8787
 ```
 
-## Файлы
+Then open [http://127.0.0.1:8787](http://127.0.0.1:8787).
 
-| Файл | Назначение |
-|------|-----------|
-| `projects.json` | Реестр проектов (редактировать сюда) |
-| `notes.json` | Начальные/shared заметки (seed для UI) |
-| `refresh.py` | Сбор данных → `data.json` |
-| `serve.py` | Локальный сервер + `POST /refresh` |
-| `index.html` | HTML-оболочка |
-| `styles.css` | Стили дашборда |
-| `app.js` | UI-логика, фильтры, заметки, рендер |
-| `favicon.svg` | Иконка браузера |
-| `tests/` | Unit- и smoke-checks для collector и UI contract |
-| `data.json` | Генерируется, **не коммитить** |
+The tracked example config starts empty on purpose, so a fresh public checkout will open into an empty dashboard until you add your own projects.
 
-## Добавить проект
+If you only want to regenerate `data.json`:
 
-Добавить объект в `projects.json`:
+```sh
+uv run python refresh.py
+```
+
+If you want periodic refreshes without running the server endpoint:
+
+```sh
+uv run python refresh.py --watch
+```
+
+## Configuration
+
+`projects.json` is the active local registry. It is intentionally ignored by git in the public repo.
+
+Example project entry:
 
 ```json
 {
   "id": "my-project",
-  "description": "Краткое описание",
+  "description": "Short card description",
   "tech": ["Python", "FastAPI"],
-  "path": "/путь/к/проекту",
+  "path": "/absolute/path/to/project",
   "work": true,
   "archived": false,
   "roadmap": {
@@ -64,92 +57,35 @@ uv run ruff check refresh.py tests
 }
 ```
 
-Поле `roadmap` — опциональное. Режимы (`mode`):
-- `checkboxes` — парсит `- [ ]` / `- [x]` (стандартный markdown)
-- `next_steps` — нумерованный или маркированный список как todo
-- `phase_status` — заголовки с `✅` / `⬜` (формат monty)
+Supported roadmap modes:
 
-Поля `projects.json`:
-- `id` — идентификатор проекта
-- `description` — короткое описание на карточке
-- `tech` — теги стека для UI и фильтров
-- `path` — абсолютный путь к проекту
-- `work` — пометка рабочих проектов
-- `archived` — убрать проект из основного списка в архив
-- `roadmap` — опциональная конфигурация парсинга roadmap
+- `checkboxes`: parses `- [ ]` and `- [x]`
+- `next_steps`: parses ordered or unordered list items
+- `phase_status`: parses headings marked with `✅` or `⬜`
 
-Архивировать проект (убрать с главного экрана, данные продолжают собираться):
-```json
-{ "id": "old-project", "archived": true, ... }
-```
+`notes.json` is optional. If you want a tracked local seed file for notes, copy `notes.example.json` to `notes.json`. Browser edits still live in `localStorage`.
 
-## UI
+## Features
 
-### Карточка проекта
-- **Цветная полоска слева**: 🔴 проблемы / >10 изменений · 🟡 1–10 · 🟢 clean · ⬜ без git
-- **Badge `работа` + фиолетовый акцент карточки** — рабочие проекты считываются быстрее
-- **Пилюли** справа от ветки: `↑N` локально · `↓N` за upstream · `⎇ N` других веток · `📦 N` stash
-- **Attention row** — отдельные статусы для `давно без коммита`, `нет upstream`, `roadmap: N задач`, `путь не найден`
-- **Diff локальных коммитов** — `+X −Y` строк в непушнутых коммитах
-- **Roadmap** — прогресс-бар + pending-задачи из файла проекта
-- **Кнопка `Скопировать путь`** — явное действие вместо hidden double-click
-- **Кнопка `Открыть roadmap`** — открывает файл roadmap, если он найден
-- **`Enter` / `Space` на карточке** — раскрыть recent commits + ветки
+- Git overview: branch, upstream status, ahead/behind, stash count, working tree changes, recent commits
+- Roadmap parsing: progress bar plus up to five pending items
+- Notes: inline editable notes with checkbox support
+- Filters: status filters, top tech tags, text search, archive section
+- Localization: English and Russian UI with browser-based default and manual toggle
+- Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
 
-### Заметки
-Кликнуть `добавить заметку…` на карточке → textarea.
+## Files
 
-Поддерживаемый синтаксис:
-```
-[ ] задача не выполнена
-[x] задача выполнена
-- просто пункт списка
-обычный текст
-```
+- `projects.example.json`: tracked example config
+- `notes.example.json`: tracked example notes seed
+- `refresh.py`: collector that produces `data.json`
+- `serve.py`: local server with `POST /refresh`
+- `index.html`, `styles.css`, `app.js`: static UI
+- `tests/`: collector and smoke tests
 
-- `[ ]` / `[x]` — кликабельные чекбоксы (можно и без `- ` префикса)
-- Стандартный markdown тоже работает: `- [ ] задача`
-- `Enter` — сохранить, `Shift+Enter` — перенос, `Esc` — отмена
-- Браузерные правки хранятся в `localStorage`
-- `notes.json` используется как начальный/shared seed, но не обновляется из UI автоматически
+## Development
 
-### Фильтры и сортировка
-
-| Кнопка | Фильтр | Сортировка |
-|--------|--------|-----------|
-| Все | все | порядок collector + текущие проблемы |
-| Работа | только `work=true` | порядок collector |
-| Грязные | только с изменениями | по кол-ву изменений ↓ |
-| Старые | только давно без коммитов | старые коммиты сверху |
-| Чистые | только clean | по алфавиту |
-
-- **Теги технологий** — фильтр по стеку (топ-6 по частоте)
-- **Поиск** — по имени, описанию, стеку, тексту заметок
-- **Архив** — секция `▸ Архив (N)` внизу, раскрывается кликом
-- **Панель фильтров** — sticky, чтобы фильтры не терялись при скролле
-
-### Клавиши
-| Клавиша | Действие |
-|---------|---------|
-| `/` | Фокус на поиск |
-| `r` | Запустить refresh через сервер и перечитать данные |
-| `Esc` | Сбросить все фильтры |
-
-### Обновление данных
-- При запуске через `serve.py` кнопка `↻ Обновить` и клавиша `r` сами вызывают `POST /refresh`
-- В обычной работе `ddr` больше не нужен
-- `ddr` всё ещё полезен как отдельная ручная команда, если хочешь просто пересобрать `data.json` без поднятия сервера
-
-## Что собирает refresh.py
-
-- **git**: ветка, другие ветки, изменено/новое/в индексе, ahead/behind/upstream, stash count, последние 5 коммитов, diff локальных коммитов (+X −Y строк)
-- **roadmap**: из файла проекта по конфигу `projects.json`
-- **note**: из `notes.json` (перекрывается browser-local `localStorage`)
-- **work** / **archived** / **exists**: из `projects.json` и проверки пути
-- **status** / **error**: нормализованный статус проекта (`ok`, `no_git`, `missing_path`)
-- **roadmap_status** / **roadmap_error**: статус загрузки roadmap (`ok`, `missing_file`, `missing_section`, `empty`, `unsupported_mode`)
-
-## Проверки
+Run the local checks:
 
 ```sh
 uv run python -m unittest tests.test_refresh
@@ -157,12 +93,10 @@ node --test tests/test_dashboard_smoke.mjs
 uv run ruff check refresh.py serve.py tests
 ```
 
-После `uv sync --dev` `ruff` ставится в локальное `.venv` автоматически.
-
 ## Troubleshooting
 
-- **Порт занят**: выбери другой, например `uv run python serve.py --port 8788`
-- **Путь проекта не существует**: карточка не скрывается, а помечается как `Путь не найден`
-- **Нет upstream**: это отдельный статус в attention row; проверь `git branch --set-upstream-to`
-- **Кнопка refresh не работает**: проверь, что дашборд запущен через `serve.py`, а не через `python -m http.server`
-- **Clipboard не работает**: в некоторых браузерах API доступен только в secure context; UI использует fallback, но поведение зависит от браузера
+- If `projects.json` is missing, copy `projects.example.json` to `projects.json` and add your local project paths.
+- If you want a seed notes file, copy `notes.example.json` to `notes.json`; otherwise you can skip it.
+- If refresh does not work from the page, make sure the dashboard is running through `serve.py`, not a generic static server.
+- If the favicon does not update immediately, force-refresh the tab because browsers cache favicons aggressively.
+- If a roadmap button opens nothing, confirm your browser allows opening local `file://` URLs from a local page.

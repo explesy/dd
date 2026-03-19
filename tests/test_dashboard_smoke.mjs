@@ -1,21 +1,31 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import net from "node:net";
+import os from "node:os";
 import path from "node:path";
-import test, { after, before } from "node:test";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "..");
-const port = 8791;
-const baseUrl = `http://127.0.0.1:${port}`;
 
-let server;
+const FIXTURE_FILES = [
+  "serve.py",
+  "refresh.py",
+  "index.html",
+  "app.js",
+  "styles.css",
+  "favicon.svg",
+  "favicon.png",
+  "projects.example.json",
+  "notes.example.json",
+];
 
-async function waitForServer() {
+async function waitForServer(baseUrl) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       const response = await fetch(baseUrl);
@@ -49,63 +59,157 @@ function extractFunctionBody(source, name) {
   throw new Error(`Could not extract ${name}`);
 }
 
-before(async () => {
-  server = spawn("python3", ["serve.py", "--port", String(port), "--bind", "127.0.0.1"], {
-    cwd: root,
+function extractFunctionSource(source, name) {
+  const marker = `function ${name}(`;
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `Function ${name} should exist`);
+
+  let index = source.indexOf("{", start);
+  let depth = 0;
+  for (; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  throw new Error(`Could not extract ${name}`);
+}
+
+async function createWorkspace({ projects = "[]\n", notes = "{}\n", includeProjects = true } = {}) {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "dd-smoke-"));
+  for (const file of FIXTURE_FILES) {
+    await cp(path.join(root, file), path.join(workspace, file));
+  }
+  if (includeProjects) {
+    await writeFile(path.join(workspace, "projects.json"), projects);
+  }
+  await writeFile(path.join(workspace, "notes.json"), notes);
+  return workspace;
+}
+
+async function getFreePort() {
+  return await new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Could not determine free port"));
+        return;
+      }
+      const { port } = address;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+    server.on("error", reject);
+  });
+}
+
+async function startServer(workspace) {
+  const port = await getFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const server = spawn("python3", ["serve.py", "--port", String(port), "--bind", "127.0.0.1"], {
+    cwd: workspace,
     stdio: "ignore",
   });
-  await waitForServer();
-});
+  await waitForServer(baseUrl);
+  return { baseUrl, server };
+}
 
-after(async () => {
+async function stopServer(server) {
   if (!server) return;
   server.kill("SIGINT");
   await once(server, "exit");
-});
+}
 
-test("page serves split assets and normalized data contract", async () => {
-  const refreshResponse = await fetch(`${baseUrl}/refresh`, { method: "POST" });
-  assert.equal(refreshResponse.status, 200);
-  const refreshPayload = await refreshResponse.json();
-  assert.equal(refreshPayload.ok, true);
-  assert.ok(Array.isArray(refreshPayload.data.projects));
+test("page serves split assets and normalized data contract with empty config", async () => {
+  const workspace = await createWorkspace();
+  let server;
+  try {
+    const started = await startServer(workspace);
+    server = started.server;
 
-  const [htmlResponse, cssResponse, jsResponse, dataResponse] = await Promise.all([
-    fetch(`${baseUrl}/`),
-    fetch(`${baseUrl}/styles.css`),
-    fetch(`${baseUrl}/app.js`),
-    fetch(`${baseUrl}/data.json`),
-  ]);
+    const refreshResponse = await fetch(`${started.baseUrl}/refresh`, { method: "POST" });
+    assert.equal(refreshResponse.status, 200);
+    const refreshPayload = await refreshResponse.json();
+    assert.equal(refreshPayload.ok, true);
+    assert.ok(Array.isArray(refreshPayload.data.projects));
+    assert.equal(refreshPayload.data.projects.length, 0);
 
-  assert.equal(htmlResponse.status, 200);
-  assert.equal(cssResponse.status, 200);
-  assert.equal(jsResponse.status, 200);
-  assert.equal(dataResponse.status, 200);
+    const [htmlResponse, cssResponse, jsResponse, dataResponse, svgFaviconResponse, pngFaviconResponse] =
+      await Promise.all([
+        fetch(`${started.baseUrl}/`),
+        fetch(`${started.baseUrl}/styles.css`),
+        fetch(`${started.baseUrl}/app.js`),
+        fetch(`${started.baseUrl}/data.json`),
+        fetch(`${started.baseUrl}/favicon.svg`),
+        fetch(`${started.baseUrl}/favicon.png`),
+      ]);
 
-  const html = await htmlResponse.text();
-  assert.match(html, /styles\.css/);
-  assert.match(html, /app\.js/);
+    assert.equal(htmlResponse.status, 200);
+    assert.equal(cssResponse.status, 200);
+    assert.equal(jsResponse.status, 200);
+    assert.equal(dataResponse.status, 200);
+    assert.equal(svgFaviconResponse.status, 200);
+    assert.equal(pngFaviconResponse.status, 200);
 
-  const data = await dataResponse.json();
-  assert.ok(Array.isArray(data.projects));
-  assert.ok(data.projects.length > 0);
+    const html = await htmlResponse.text();
+    assert.match(html, /styles\.css/);
+    assert.match(html, /app\.js/);
+    assert.match(html, /favicon\.svg/);
+    assert.match(html, /favicon\.png/);
+    assert.match(html, /data-locale="en"/);
+    assert.match(html, /data-locale="ru"/);
 
-  for (const project of data.projects) {
-    for (const key of [
-      "work",
-      "archived",
-      "exists",
-      "status",
-      "error",
-      "roadmap_status",
-      "roadmap_error",
-    ]) {
-      assert.ok(Object.hasOwn(project, key), `project should include ${key}`);
-    }
+    const data = await dataResponse.json();
+    assert.ok(Array.isArray(data.projects));
+    assert.equal(data.projects.length, 0);
+  } finally {
+    await stopServer(server);
+    await rm(workspace, { recursive: true, force: true });
   }
 });
 
-test("app.js keeps global event binding out of render", async () => {
+test("server surfaces actionable setup errors when projects.json is missing", async () => {
+  const workspace = await createWorkspace({ includeProjects: false });
+  let server;
+  try {
+    const started = await startServer(workspace);
+    server = started.server;
+
+    const [rootResponse, dataResponse, refreshResponse] = await Promise.all([
+      fetch(`${started.baseUrl}/`),
+      fetch(`${started.baseUrl}/data.json?bootstrap`),
+      fetch(`${started.baseUrl}/refresh`, { method: "POST" }),
+    ]);
+
+    assert.equal(rootResponse.status, 200);
+    assert.equal(dataResponse.status, 500);
+    assert.equal(refreshResponse.status, 500);
+
+    const dataPayload = await dataResponse.json();
+    const refreshPayload = await refreshResponse.json();
+
+    assert.equal(dataPayload.ok, false);
+    assert.equal(refreshPayload.ok, false);
+    assert.match(dataPayload.error, /projects\.example\.json/);
+    assert.match(refreshPayload.error, /projects\.example\.json/);
+  } finally {
+    await stopServer(server);
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("app.js keeps global event binding out of render and preserves locale helpers", async () => {
   const source = await readFile(path.join(root, "app.js"), "utf8");
   const renderBody = extractFunctionBody(source, "render");
   const bindBody = extractFunctionBody(source, "bindStaticEvents");
@@ -114,4 +218,25 @@ test("app.js keeps global event binding out of render", async () => {
   assert.ok(bindBody.includes("addEventListener"), "bindStaticEvents() should register listeners");
   assert.ok(!source.includes("project.exists !== false"), "missing projects should not be filtered out");
   assert.ok(source.includes('fetch("/refresh"'), "soft reload should call the refresh endpoint");
+  assert.ok(source.includes('const LOCALE_KEY = "dd:locale";'));
+  assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
+
+  const helperFactory = new Function(
+    `const SUPPORTED_LOCALES = ["en", "ru"];
+${extractFunctionSource(source, "detectBrowserLocale")}
+${extractFunctionSource(source, "resolveLocalePreference")}
+return { detectBrowserLocale, resolveLocalePreference };`,
+  );
+  const { detectBrowserLocale, resolveLocalePreference } = helperFactory();
+
+  assert.equal(detectBrowserLocale("ru-RU"), "ru");
+  assert.equal(detectBrowserLocale("en-US"), "en");
+  assert.equal(resolveLocalePreference("ru", "en-US"), "ru");
+  assert.equal(resolveLocalePreference(null, "ru-RU"), "ru");
+  assert.equal(resolveLocalePreference("de", "en-US"), "en");
+
+  assert.ok(source.includes('headerSubtitle: "Project Dashboard"'));
+  assert.ok(source.includes('headerSubtitle: "Дашборд проектов"'));
+  assert.ok(source.includes('loadDataError: ({ message }) => `Could not load data.json: ${message}`'));
+  assert.ok(source.includes('loadDataError: ({ message }) => `Не удалось загрузить data.json: ${message}`'));
 });

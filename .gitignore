@@ -1,5 +1,7 @@
 # Generated — do not commit
 data.json
+projects.json
+notes.json
 
 # macOS
 .DS_Store

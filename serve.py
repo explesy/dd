@@ -17,6 +17,20 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import refresh
 
 REFRESH_LOCK = threading.Lock()
+LAST_REFRESH_ERROR = None
+DATA_FILE = refresh.SCRIPT_DIR / "data.json"
+
+
+def run_refresh() -> dict:
+    global LAST_REFRESH_ERROR
+    try:
+        data = refresh.main()
+    except Exception as exc:
+        LAST_REFRESH_ERROR = str(exc)
+        DATA_FILE.unlink(missing_ok=True)
+        raise
+    LAST_REFRESH_ERROR = None
+    return data
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -37,6 +51,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def do_GET(self) -> None:
+        if self.path.startswith("/data.json") and LAST_REFRESH_ERROR and not DATA_FILE.exists():
+            self._send_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": LAST_REFRESH_ERROR},
+            )
+            return
+        super().do_GET()
+
     def do_POST(self) -> None:
         if self.path != "/refresh":
             self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
@@ -44,7 +67,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         with REFRESH_LOCK:
             try:
-                data = refresh.main()
+                data = run_refresh()
             except Exception as exc:  # pragma: no cover - exercised via smoke test
                 self._send_json(
                     HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -64,7 +87,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    refresh.main()
+    try:
+        run_refresh()
+    except Exception as exc:
+        print(f"Startup refresh failed: {exc}")
     handler = partial(DashboardHandler, directory=str(refresh.SCRIPT_DIR))
     server = ThreadingHTTPServer((args.bind, args.port), handler)
     host = args.bind

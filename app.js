@@ -1,5 +1,8 @@
 const NOTES_PREFIX = "dd:note:";
 const VIEW_STATE_KEY = "dd:view-state";
+const LOCALE_KEY = "dd:locale";
+
+const SUPPORTED_LOCALES = ["en", "ru"];
 
 const SORT_FOR = {
   all: "default",
@@ -7,6 +10,145 @@ const SORT_FOR = {
   dirty: "changes",
   stale: "date",
   clean: "name",
+};
+
+const TRANSLATIONS = {
+  en: {
+    documentTitle: "DD Project Dashboard",
+    headerTitle: "DD",
+    headerSubtitle: "Project Dashboard",
+    languageLabel: "Language",
+    languageSwitcher: "Language switcher",
+    reload: "Refresh",
+    reloading: "Refreshing…",
+    reloadDone: "Done",
+    updatingTimestamp: "Refreshing…",
+    updatedAt: ({ value }) => `Updated ${value}`,
+    filters: {
+      all: "All",
+      work: "Work",
+      dirty: "Dirty",
+      stale: "Stale",
+      clean: "Clean",
+    },
+    searchPlaceholder: "Search by name, tech, notes…",
+    searchAriaLabel: "Search projects",
+    emptyState: "No projects match the current filters.",
+    archiveClosed: ({ count }) => `▸ Archive (${count})`,
+    archiveOpen: ({ count }) => `▾ Archive (${count})`,
+    noScript: "This dashboard requires JavaScript.",
+    notePlaceholder: "add a note…",
+    noteHint: "[ ] todo  [x] done  - bullet  · Enter=save  Shift+Enter=new line  Esc=cancel",
+    noteSaved: "Saved",
+    copySuccess: ({ path }) => `Copied: ${path}`,
+    copyFailure: "Could not copy path",
+    roadmapUnavailable: "Roadmap file is unavailable",
+    copyPath: "Copy path",
+    openRoadmap: "Open roadmap",
+    workBadge: "work",
+    archivedBadge: "archived",
+    recentCommits: "Recent commits",
+    otherBranches: "Other branches",
+    pathNotFound: "Path not found",
+    noGitShort: "No git",
+    noUpstream: "No upstream",
+    aheadLocal: ({ count }) => `↑${count} local`,
+    behindRemote: ({ count }) => `↓${count} behind`,
+    stashCount: ({ count }) => `📦 ${count} stash`,
+    staleProject: "stale",
+    roadmapMissingFile: "roadmap: missing file",
+    roadmapMissingSection: "roadmap: missing section",
+    roadmapUnsupportedMode: "roadmap: unsupported mode",
+    roadmapEmpty: "roadmap: empty",
+    roadmapPendingCount: ({ count }) => `roadmap: ${count} pending`,
+    missingPathLine: "Project path not found",
+    noGitLine: "Directory exists but is not a git repository",
+    workingTreeClean: "Working tree is clean",
+    modifiedCount: ({ count }) => `${count} modified`,
+    untrackedCount: ({ count }) => `${count} untracked`,
+    stagedCount: ({ count }) => `${count} staged`,
+    changesSummary: ({ count, parts }) => `${count} changes (${parts})`,
+    localCommitDiff: ({ count, insertions, deletions }) =>
+      `${count} local commit${count === 1 ? "" : "s"}: +${insertions} −${deletions}`,
+    serverHintCommand: "cp projects.example.json projects.json && uv run python serve.py --port 8787",
+    loadDataError: ({ message }) => `Could not load data.json: ${message}`,
+    refreshDataError: ({ message }) => `Could not refresh data via /refresh: ${message}`,
+    refreshUiError: ({ message }) => `Could not refresh the interface: ${message}`,
+    justNow: "just now",
+    minutesAgo: ({ count }) => `${count}m ago`,
+    hoursAgo: ({ count }) => `${count}h ago`,
+    daysAgo: ({ count }) => `${count}d ago`,
+    monthsAgo: ({ count }) => `${count}mo ago`,
+    yearsAgo: ({ count }) => `${count}y ago`,
+  },
+  ru: {
+    documentTitle: "DD Project Dashboard",
+    headerTitle: "DD",
+    headerSubtitle: "Дашборд проектов",
+    languageLabel: "Язык",
+    languageSwitcher: "Переключатель языка",
+    reload: "Обновить",
+    reloading: "Обновляю…",
+    reloadDone: "Готово",
+    updatingTimestamp: "Обновляю…",
+    updatedAt: ({ value }) => `Обновлено ${value}`,
+    filters: {
+      all: "Все",
+      work: "Работа",
+      dirty: "Грязные",
+      stale: "Старые",
+      clean: "Чистые",
+    },
+    searchPlaceholder: "Поиск по имени, стеку, заметкам…",
+    searchAriaLabel: "Поиск проектов",
+    emptyState: "Нет проектов под текущими фильтрами.",
+    archiveClosed: ({ count }) => `▸ Архив (${count})`,
+    archiveOpen: ({ count }) => `▾ Архив (${count})`,
+    noScript: "Для дашборда нужен JavaScript.",
+    notePlaceholder: "добавить заметку…",
+    noteHint: "[ ] todo  [x] done  - пункт  · Enter=сохранить  Shift+Enter=перенос  Esc=отмена",
+    noteSaved: "Сохранено",
+    copySuccess: ({ path }) => `Скопировано: ${path}`,
+    copyFailure: "Не удалось скопировать путь",
+    roadmapUnavailable: "Файл roadmap недоступен",
+    copyPath: "Скопировать путь",
+    openRoadmap: "Открыть roadmap",
+    workBadge: "работа",
+    archivedBadge: "архив",
+    recentCommits: "Недавние коммиты",
+    otherBranches: "Другие ветки",
+    pathNotFound: "Путь не найден",
+    noGitShort: "Без git",
+    noUpstream: "Нет upstream",
+    aheadLocal: ({ count }) => `↑${count} локально`,
+    behindRemote: ({ count }) => `↓${count} позади`,
+    stashCount: ({ count }) => `📦 ${count} stash`,
+    staleProject: "давно без коммита",
+    roadmapMissingFile: "roadmap: нет файла",
+    roadmapMissingSection: "roadmap: нет секции",
+    roadmapUnsupportedMode: "roadmap: неизвестный mode",
+    roadmapEmpty: "roadmap: пусто",
+    roadmapPendingCount: ({ count }) => `roadmap: ${count} задач`,
+    missingPathLine: "Путь проекта не найден",
+    noGitLine: "Каталог существует, но это не git-репозиторий",
+    workingTreeClean: "Рабочее дерево чистое",
+    modifiedCount: ({ count }) => `${count} изменено`,
+    untrackedCount: ({ count }) => `${count} новое`,
+    stagedCount: ({ count }) => `${count} в индексе`,
+    changesSummary: ({ count, parts }) => `${count} изменений (${parts})`,
+    localCommitDiff: ({ count, insertions, deletions }) =>
+      `${count} локал. коммит${count > 1 ? "ов" : ""}: +${insertions} −${deletions}`,
+    serverHintCommand: "cp projects.example.json projects.json && uv run python serve.py --port 8787",
+    loadDataError: ({ message }) => `Не удалось загрузить data.json: ${message}`,
+    refreshDataError: ({ message }) => `Не удалось обновить данные через /refresh: ${message}`,
+    refreshUiError: ({ message }) => `Не удалось обновить интерфейс: ${message}`,
+    justNow: "только что",
+    minutesAgo: ({ count }) => `${count}м назад`,
+    hoursAgo: ({ count }) => `${count}ч назад`,
+    daysAgo: ({ count }) => `${count}д назад`,
+    monthsAgo: ({ count }) => `${count}мес назад`,
+    yearsAgo: ({ count }) => `${count}г назад`,
+  },
 };
 
 const state = {
@@ -17,11 +159,28 @@ const state = {
   activeTech: null,
   searchQuery: "",
   currentSort: "default",
+  locale: "en",
+  latestData: null,
+  generatedAt: null,
+  reloadState: "idle",
 };
 
 const els = {};
 
+function detectBrowserLocale(browserLanguage) {
+  return String(browserLanguage || "").toLowerCase().startsWith("ru") ? "ru" : "en";
+}
+
+function resolveLocalePreference(storedLocale, browserLanguage) {
+  return SUPPORTED_LOCALES.includes(storedLocale) ? storedLocale : detectBrowserLocale(browserLanguage);
+}
+
 function initializeElements() {
+  els.headerTitle = document.getElementById("headerTitle");
+  els.headerSubtitle = document.getElementById("headerSubtitle");
+  els.localeLabel = document.getElementById("localeLabel");
+  els.localeToggle = document.getElementById("localeToggle");
+  els.localeButtons = Array.from(document.querySelectorAll("#localeToggle .locale-btn"));
   els.timestamp = document.getElementById("timestamp");
   els.reloadBtn = document.getElementById("reloadBtn");
   els.statusFilters = document.getElementById("statusFilters");
@@ -35,6 +194,7 @@ function initializeElements() {
   els.error = document.getElementById("error");
   els.toast = document.getElementById("toast");
   els.emptyState = document.getElementById("emptyState");
+  els.noScript = document.getElementById("noScript");
 }
 
 function esc(value) {
@@ -44,6 +204,12 @@ function esc(value) {
   return div.innerHTML;
 }
 
+function t(key, params = {}) {
+  const dict = TRANSLATIONS[state.locale] || TRANSLATIONS.en;
+  const value = dict[key] ?? TRANSLATIONS.en[key];
+  return typeof value === "function" ? value(params) : value;
+}
+
 function relativeDate(iso) {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
@@ -51,12 +217,12 @@ function relativeDate(iso) {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 1) return "только что";
-  if (minutes < 60) return `${minutes}м назад`;
-  if (hours < 24) return `${hours}ч назад`;
-  if (days < 30) return `${days}д назад`;
-  if (days < 365) return `${Math.floor(days / 30)}мес назад`;
-  return `${Math.floor(days / 365)}г назад`;
+  if (minutes < 1) return t("justNow");
+  if (minutes < 60) return t("minutesAgo", { count: minutes });
+  if (hours < 24) return t("hoursAgo", { count: hours });
+  if (days < 30) return t("daysAgo", { count: days });
+  if (days < 365) return t("monthsAgo", { count: Math.floor(days / 30) });
+  return t("yearsAgo", { count: Math.floor(days / 365) });
 }
 
 function isStale(project) {
@@ -75,6 +241,42 @@ function statusColor(project) {
   if (project.total_changes === 0) return "green";
   if (project.total_changes <= 10) return "yellow";
   return "red";
+}
+
+function updateReloadButton() {
+  const labels = {
+    idle: t("reload"),
+    loading: t("reloading"),
+    done: t("reloadDone"),
+  };
+  els.reloadBtn.textContent = labels[state.reloadState] || labels.idle;
+  els.reloadBtn.disabled = state.reloadState === "loading";
+}
+
+function updateTimestamp() {
+  if (state.reloadState === "loading") {
+    els.timestamp.textContent = t("updatingTimestamp");
+    return;
+  }
+  if (!state.generatedAt) {
+    els.timestamp.textContent = "";
+    return;
+  }
+  els.timestamp.textContent = t("updatedAt", { value: relativeDate(state.generatedAt) });
+}
+
+function updateLocaleButtons() {
+  document.documentElement.lang = state.locale;
+  document.title = t("documentTitle");
+  els.headerTitle.textContent = t("headerTitle");
+  els.headerSubtitle.textContent = t("headerSubtitle");
+  els.localeLabel.textContent = t("languageLabel");
+  els.localeToggle.setAttribute("aria-label", t("languageSwitcher"));
+  els.localeButtons.forEach((button) => {
+    const active = button.dataset.locale === state.locale;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function toast(message) {
@@ -109,6 +311,16 @@ function persistViewState() {
       archiveOpen: state.archiveOpen,
     }),
   );
+}
+
+function loadLocalePreference() {
+  const storedLocale = localStorage.getItem(LOCALE_KEY);
+  const browserLanguage = navigator.languages?.[0] || navigator.language;
+  state.locale = resolveLocalePreference(storedLocale, browserLanguage);
+}
+
+function persistLocalePreference() {
+  localStorage.setItem(LOCALE_KEY, state.locale);
 }
 
 function getNote(id) {
@@ -153,33 +365,66 @@ async function copyText(text) {
 
 async function handleCopyPath(project) {
   const success = await copyText(project.path);
-  toast(success ? `Скопировано: ${project.path}` : "Не удалось скопировать путь");
+  toast(success ? t("copySuccess", { path: project.path }) : t("copyFailure"));
+}
+
+function showError(message) {
+  els.error.innerHTML = `${esc(message)}<br><code>${esc(t("serverHintCommand"))}</code>`;
+  els.error.style.display = "block";
+}
+
+function clearError() {
+  els.error.style.display = "none";
 }
 
 function openRoadmap(project) {
   if (!project.roadmap?.path) {
-    toast("Файл roadmap недоступен");
+    toast(t("roadmapUnavailable"));
     return;
   }
   window.open(`file://${encodeURI(project.roadmap.path)}`, "_blank", "noopener");
 }
 
-async function softReload() {
-  els.reloadBtn.disabled = true;
-  els.reloadBtn.textContent = "↻ …";
-  els.timestamp.textContent = "Обновляю…";
+async function readErrorMessage(response, fallback) {
+  try {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const payload = await response.json();
+      return payload.error || fallback;
+    }
+    const text = (await response.text()).trim();
+    return text || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
-  const data = await refreshData();
-  if (data) {
+async function softReload() {
+  let success = false;
+  state.reloadState = "loading";
+  updateReloadButton();
+  updateTimestamp();
+
+  try {
+    const data = await refreshData();
+    if (!data) return;
     render(data);
-    els.reloadBtn.textContent = "✓ Готово";
-    setTimeout(() => {
-      els.reloadBtn.textContent = "↻ Обновить";
-      els.reloadBtn.disabled = false;
-    }, 1200);
-  } else {
-    els.reloadBtn.textContent = "↻ Обновить";
-    els.reloadBtn.disabled = false;
+    success = true;
+    state.reloadState = "done";
+    updateReloadButton();
+    updateTimestamp();
+  } catch (error) {
+    console.error("Soft reload failed", error);
+    showError(t("refreshUiError", { message: error?.message || "unknown error" }));
+  } finally {
+    setTimeout(
+      () => {
+        state.reloadState = "idle";
+        updateReloadButton();
+        updateTimestamp();
+      },
+      success ? 1200 : 0,
+    );
   }
 }
 
@@ -189,18 +434,19 @@ async function refreshData() {
       method: "POST",
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    if (!response.ok) {
+      const message = await readErrorMessage(response, `HTTP ${response.status}`);
+      throw new Error(message);
+    }
 
     const payload = await response.json();
     if (!payload.ok || !payload.data) throw new Error(payload.error || "Refresh failed");
 
-    els.error.style.display = "none";
+    clearError();
     return payload.data;
-  } catch {
-    els.error.style.display = "block";
-    els.error.innerHTML =
-      "Не удалось обновить данные через /refresh" +
-      "<code>uv run python serve.py --port 8787</code>";
+  } catch (error) {
+    showError(t("refreshDataError", { message: error?.message || "unknown error" }));
     return null;
   }
 }
@@ -208,15 +454,17 @@ async function refreshData() {
 async function loadData() {
   try {
     const response = await fetch(`./data.json?${Date.now()}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    if (!response.ok) {
+      const message = await readErrorMessage(response, `HTTP ${response.status}`);
+      throw new Error(message);
+    }
+
     const data = await response.json();
-    els.error.style.display = "none";
+    clearError();
     return data;
-  } catch {
-    els.error.style.display = "block";
-    els.error.innerHTML =
-      "Не удалось загрузить data.json" +
-      "<code>uv run python serve.py --port 8787</code>";
+  } catch (error) {
+    showError(t("loadDataError", { message: error?.message || "unknown error" }));
     return null;
   }
 }
@@ -281,7 +529,9 @@ function applyFilters() {
 
 function updateStatusButtons() {
   els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
-    const isActive = button.dataset.filter === state.activeStatus;
+    const filter = button.dataset.filter;
+    button.textContent = TRANSLATIONS[state.locale].filters[filter];
+    const isActive = filter === state.activeStatus;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
@@ -352,7 +602,7 @@ function renderNoteContent(rendered, project) {
   const raw = resolveNote(project);
   if (!raw.trim()) {
     rendered.innerHTML = "";
-    rendered.textContent = "добавить заметку…";
+    rendered.textContent = t("notePlaceholder");
     rendered.classList.add("empty");
     return;
   }
@@ -432,7 +682,7 @@ function buildNoteWidget(project) {
 
     const hint = document.createElement("div");
     hint.className = "note-hint";
-    hint.textContent = "[ ] todo  [x] done  - пункт  · Enter=сохранить  Shift+Enter=перенос  Esc=отмена";
+    hint.textContent = t("noteHint");
 
     wrapper.replaceChild(textarea, rendered);
     wrapper.appendChild(hint);
@@ -456,7 +706,7 @@ function buildNoteWidget(project) {
       } else if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
         keyEvent.preventDefault();
         commit();
-        toast("Сохранено");
+        toast(t("noteSaved"));
       }
     });
 
@@ -473,13 +723,13 @@ function buildNoteWidget(project) {
 function roadmapIssueLabel(project) {
   switch (project.roadmap_status) {
     case "missing_file":
-      return "roadmap: нет файла";
+      return t("roadmapMissingFile");
     case "missing_section":
-      return "roadmap: нет секции";
+      return t("roadmapMissingSection");
     case "unsupported_mode":
-      return "roadmap: неизвестный mode";
+      return t("roadmapUnsupportedMode");
     case "empty":
-      return "roadmap: пусто";
+      return t("roadmapEmpty");
     default:
       return null;
   }
@@ -489,20 +739,20 @@ function buildAttentionItems(project) {
   const items = [];
 
   if (project.status === "missing_path") {
-    items.push({ label: "Путь не найден", kind: "danger" });
+    items.push({ label: t("pathNotFound"), kind: "danger" });
   } else {
-    if (!project.is_git) items.push({ label: "Без git", kind: "muted" });
-    if (project.is_git && !project.has_upstream) items.push({ label: "Нет upstream", kind: "warn" });
-    if (project.ahead > 0) items.push({ label: `↑${project.ahead} локально`, kind: "info" });
-    if (project.behind > 0) items.push({ label: `↓${project.behind} позади`, kind: "danger" });
-    if (project.stash_count > 0) items.push({ label: `📦 ${project.stash_count} stash`, kind: "warn" });
-    if (isStale(project)) items.push({ label: "давно без коммита", kind: "warn" });
+    if (!project.is_git) items.push({ label: t("noGitShort"), kind: "muted" });
+    if (project.is_git && !project.has_upstream) items.push({ label: t("noUpstream"), kind: "warn" });
+    if (project.ahead > 0) items.push({ label: t("aheadLocal", { count: project.ahead }), kind: "info" });
+    if (project.behind > 0) items.push({ label: t("behindRemote", { count: project.behind }), kind: "danger" });
+    if (project.stash_count > 0) items.push({ label: t("stashCount", { count: project.stash_count }), kind: "warn" });
+    if (isStale(project)) items.push({ label: t("staleProject"), kind: "warn" });
   }
 
   const roadmapLabel = roadmapIssueLabel(project);
   if (roadmapLabel) items.push({ label: roadmapLabel, kind: "danger" });
   if (project.roadmap?.pending?.length) {
-    items.push({ label: `roadmap: ${project.roadmap.pending.length} задач`, kind: "muted" });
+    items.push({ label: t("roadmapPendingCount", { count: project.roadmap.pending.length }), kind: "muted" });
   }
 
   return items;
@@ -519,32 +769,34 @@ function buildAttentionHtml(project) {
 function buildStatsHtml(project) {
   if (project.status === "missing_path") {
     return `
-      <div class="problem-line">Путь проекта не найден</div>
+      <div class="problem-line">${esc(t("missingPathLine"))}</div>
       <div class="stat-commit"><code>${esc(project.path)}</code></div>
     `;
   }
 
   if (!project.is_git) {
-    return '<div class="no-git">Каталог существует, но это не git-репозиторий</div>';
+    return `<div class="no-git">${esc(t("noGitLine"))}</div>`;
   }
 
   let html = "";
   if (project.total_changes === 0) {
-    html += '<div class="stat-changes clean">Рабочее дерево чистое</div>';
+    html += `<div class="stat-changes clean">${esc(t("workingTreeClean"))}</div>`;
   } else {
     const parts = [];
-    if (project.modified > 0) parts.push(`${project.modified} изменено`);
-    if (project.untracked > 0) parts.push(`${project.untracked} новое`);
-    if (project.staged > 0) parts.push(`${project.staged} в индексе`);
+    if (project.modified > 0) parts.push(t("modifiedCount", { count: project.modified }));
+    if (project.untracked > 0) parts.push(t("untrackedCount", { count: project.untracked }));
+    if (project.staged > 0) parts.push(t("stagedCount", { count: project.staged }));
     const tone = project.total_changes > 10 ? "alert" : "warn";
-    html += `<div class="stat-changes ${tone}">${project.total_changes} изменений (${parts.join(", ")})</div>`;
+    html += `<div class="stat-changes ${tone}">${esc(
+      t("changesSummary", { count: project.total_changes, parts: parts.join(", ") }),
+    )}</div>`;
   }
 
   if (project.last_commit?.hash) {
     html += `
       <div class="stat-commit">
         <span class="hash">${esc(project.last_commit.hash)}</span> ${esc(project.last_commit.message)}
-        <br>${relativeDate(project.last_commit.date)}
+        <br>${esc(relativeDate(project.last_commit.date))}
       </div>
     `;
   }
@@ -553,8 +805,13 @@ function buildStatsHtml(project) {
     const stats = project.unpushed_stats;
     html += `
       <div class="unpushed-stats">
-        ${project.ahead} локал. коммит${project.ahead > 1 ? "ов" : ""}:
-        <span class="ins">+${stats.insertions}</span> <span class="del">−${stats.deletions}</span>
+        ${esc(
+          t("localCommitDiff", {
+            count: project.ahead,
+            insertions: stats.insertions,
+            deletions: stats.deletions,
+          }),
+        )}
       </div>
     `;
   }
@@ -595,7 +852,7 @@ function buildExpandHtml(project) {
           `<div class="commit-line"><span class="hash">${esc(commit.hash)}</span> ${esc(commit.message)}</div>`,
       )
       .join("");
-    html += `<div class="expand-label">Недавние коммиты</div>${lines}`;
+    html += `<div class="expand-label">${esc(t("recentCommits"))}</div>${lines}`;
   }
 
   if (project.other_branches?.length) {
@@ -603,7 +860,7 @@ function buildExpandHtml(project) {
       .map((branch) => `<span class="branch-chip">${esc(branch)}</span>`)
       .join("");
     html += `
-      <div class="expand-label" style="margin-top:8px">Другие ветки</div>
+      <div class="expand-label" style="margin-top:8px">${esc(t("otherBranches"))}</div>
       <div class="branch-list">${branches}</div>
     `;
   }
@@ -618,7 +875,7 @@ function buildActions(project) {
   const copyButton = document.createElement("button");
   copyButton.type = "button";
   copyButton.className = "card-action";
-  copyButton.textContent = "Скопировать путь";
+  copyButton.textContent = t("copyPath");
   copyButton.addEventListener("click", async (event) => {
     event.stopPropagation();
     await handleCopyPath(project);
@@ -629,7 +886,7 @@ function buildActions(project) {
     const roadmapButton = document.createElement("button");
     roadmapButton.type = "button";
     roadmapButton.className = "card-action";
-    roadmapButton.textContent = "Открыть roadmap";
+    roadmapButton.textContent = t("openRoadmap");
     roadmapButton.addEventListener("click", (event) => {
       event.stopPropagation();
       openRoadmap(project);
@@ -665,8 +922,8 @@ function buildCard(project, index, archived = false) {
   card.setAttribute("role", "button");
   card.setAttribute("aria-expanded", "false");
 
-  const workBadge = project.work ? '<span class="work-badge">работа</span>' : "";
-  const archivedBadge = archived ? '<span class="archived-badge">архив</span>' : "";
+  const workBadge = project.work ? `<span class="work-badge">${esc(t("workBadge"))}</span>` : "";
+  const archivedBadge = archived ? `<span class="archived-badge">${esc(t("archivedBadge"))}</span>` : "";
 
   let metaHtml = "";
   if (project.is_git && project.branch) {
@@ -742,20 +999,32 @@ function renderArchiveSection() {
   });
   els.archiveGrid.style.display = state.archiveOpen ? "grid" : "none";
   els.archiveToggle.textContent = state.archiveOpen
-    ? `▾ Архив (${state.archivedProjects.length})`
-    : `▸ Архив (${state.archivedProjects.length})`;
+    ? t("archiveOpen", { count: state.archivedProjects.length })
+    : t("archiveClosed", { count: state.archivedProjects.length });
+}
+
+function applyLocaleToStaticUi() {
+  updateLocaleButtons();
+  updateReloadButton();
+  updateTimestamp();
+  updateStatusButtons();
+  els.searchInput.placeholder = t("searchPlaceholder");
+  els.searchInput.setAttribute("aria-label", t("searchAriaLabel"));
+  els.emptyState.textContent = t("emptyState");
+  els.noScript.textContent = t("noScript");
 }
 
 function render(data) {
+  state.latestData = data;
+  state.generatedAt = data.generated_at || null;
   state.allProjects = data.projects.filter((project) => !project.archived);
   state.archivedProjects = data.projects.filter((project) => project.archived);
 
-  els.timestamp.textContent = `Обновлено ${relativeDate(data.generated_at)}`;
+  applyLocaleToStaticUi();
   els.grid.innerHTML = "";
   state.allProjects.forEach((project, index) => els.grid.appendChild(buildCard(project, index)));
 
   buildTechFilters();
-  updateStatusButtons();
   els.searchInput.value = state.searchQuery;
   renderArchiveSection();
   applyFilters();
@@ -798,6 +1067,19 @@ function bindStaticEvents() {
     softReload();
   });
 
+  els.localeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.locale === state.locale) return;
+      state.locale = button.dataset.locale;
+      persistLocalePreference();
+      if (state.latestData) {
+        render(state.latestData);
+      } else {
+        applyLocaleToStaticUi();
+      }
+    });
+  });
+
   els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeStatus = button.dataset.filter;
@@ -818,7 +1100,9 @@ function bindStaticEvents() {
 
 async function initializeApp() {
   initializeElements();
+  loadLocalePreference();
   loadViewState();
+  applyLocaleToStaticUi();
   bindStaticEvents();
   const data = await loadData();
   if (data) render(data);
