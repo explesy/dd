@@ -43,6 +43,25 @@ def run(cmd: list[str], cwd: str) -> str:
     return result.stdout.strip()
 
 
+def default_git_state() -> dict:
+    return {
+        "is_git": False,
+        "branch": None,
+        "other_branches": [],
+        "modified": 0,
+        "untracked": 0,
+        "staged": 0,
+        "total_changes": 0,
+        "ahead": None,
+        "behind": None,
+        "has_upstream": False,
+        "unpushed_stats": None,
+        "last_commit": None,
+        "recent_commits": [],
+        "stash_count": 0,
+    }
+
+
 def git_info(path: str) -> dict:
     branch = run(["git", "branch", "--show-current"], path)
 
@@ -142,7 +161,11 @@ def parse_checkboxes(text: str) -> dict:
             checked = m.group(1).lower() == "x"
             label = m.group(2).strip()
             (done_items if checked else todo_items).append(label)
-    return {"done": len(done_items), "total": len(done_items) + len(todo_items), "pending": todo_items[:5]}
+    return {
+        "done": len(done_items),
+        "total": len(done_items) + len(todo_items),
+        "pending": todo_items[:5],
+    }
 
 
 def parse_next_steps(text: str) -> dict:
@@ -178,18 +201,34 @@ PARSERS = {
 }
 
 
-def load_roadmap(project_path: str, cfg: dict) -> dict | None:
+def load_roadmap(project_path: str, cfg: dict) -> tuple[dict | None, str, str | None]:
+    mode = cfg.get("mode", "checkboxes")
+    parser = PARSERS.get(mode)
+    if parser is None:
+        return None, "unsupported_mode", f"Unsupported roadmap mode: {mode}"
+
     fpath = Path(project_path) / cfg["file"]
     if not fpath.exists():
-        return None
+        return None, "missing_file", f"Roadmap file not found: {fpath}"
+
     text = fpath.read_text(encoding="utf-8")
-    body = extract_section(text, cfg["section"]) if cfg.get("section") else text
+    section_name = cfg.get("section")
+    body = extract_section(text, section_name) if section_name else text
+
     if not body.strip():
-        return None
-    result = PARSERS[cfg.get("mode", "checkboxes")](body)
+        if section_name:
+            return None, "missing_section", f"Roadmap section not found or empty: {section_name}"
+        return None, "empty", f"Roadmap file is empty: {fpath}"
+
+    result = parser(body)
     result["source"] = cfg["file"]
-    result["section"] = cfg.get("section") or "Roadmap"
-    return result if result["total"] > 0 else None
+    result["path"] = str(fpath)
+    result["section"] = section_name or "Roadmap"
+
+    if result["total"] == 0:
+        return None, "empty", f"Roadmap contains no parseable items: {fpath}"
+
+    return result, "ok", None
 
 
 # ── Project collector ─────────────────────────────────────────────────────────
@@ -203,25 +242,34 @@ def collect_project(proj: dict) -> dict:
         "description": proj["description"],
         "tech": proj["tech"],
         "path": path,
+        "work": bool(proj.get("work", False)),
+        "archived": bool(proj.get("archived", False)),
         "exists": p.exists(),
+        "status": "ok",
+        "error": None,
         "roadmap": None,
+        "roadmap_status": "not_configured",
+        "roadmap_error": None,
     }
 
     if not p.exists():
-        return {**base, "is_git": False}
+        base.update(default_git_state())
+        base["status"] = "missing_path"
+        base["error"] = f"Project path not found: {path}"
+        return base
 
     if (p / ".git").exists():
         base.update(git_info(path))
     else:
-        base.update({
-            "is_git": False, "branch": None, "other_branches": [],
-            "modified": 0, "untracked": 0, "staged": 0, "total_changes": 0,
-            "ahead": None, "behind": None, "has_upstream": False,
-            "unpushed_stats": None, "last_commit": None, "recent_commits": [],
-        })
+        base.update(default_git_state())
+        base["status"] = "no_git"
+        base["error"] = "Directory exists but is not a git repository"
 
     if proj.get("roadmap"):
-        base["roadmap"] = load_roadmap(path, proj["roadmap"])
+        roadmap, roadmap_status, roadmap_error = load_roadmap(path, proj["roadmap"])
+        base["roadmap"] = roadmap
+        base["roadmap_status"] = roadmap_status
+        base["roadmap_error"] = roadmap_error
 
     return base
 
@@ -230,12 +278,17 @@ def collect_project(proj: dict) -> dict:
 
 def git_stash_count(path: str) -> int:
     raw = run(["git", "stash", "list"], path)
-    return len([l for l in raw.splitlines() if l.strip()]) if raw else 0
+    return len([line for line in raw.splitlines() if line.strip()]) if raw else 0
 
 
 # ── Sorting ───────────────────────────────────────────────────────────────────
 
 def sort_key(p: dict):
+    status_rank = {
+        "missing_path": 0,
+        "ok": 1,
+        "no_git": 2,
+    }.get(p.get("status"), 3)
     changes = p.get("total_changes", 0)
     last = p.get("last_commit")
     days_ago = 9999
@@ -245,7 +298,7 @@ def sort_key(p: dict):
             days_ago = (datetime.now(timezone.utc) - dt).days
         except Exception:
             pass
-    return (-changes, days_ago)
+    return (status_rank, -changes, days_ago)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -258,11 +311,8 @@ def main():
     for p in project_defs:
         collected = collect_project(p)
         collected["note"] = notes.get(p["id"])       # None if absent
-        collected["archived"] = bool(p.get("archived", False))
         if collected.get("is_git"):
             collected["stash_count"] = git_stash_count(p["path"])
-        else:
-            collected["stash_count"] = 0
         projects.append(collected)
 
     projects.sort(key=sort_key)

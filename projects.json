@@ -8,6 +8,7 @@
   {
     "id": "mediadistri",
     "description": "Telegram-бот для медиа-обменов",
+    "work": true,
     "tech": [
       "Python",
       "aiogram",
@@ -74,6 +75,7 @@
   {
     "id": "profsoyuz",
     "description": "Сайт профсоюза (WordPress)",
+    "work": true,
     "tech": [
       "PHP",
       "WordPress"
