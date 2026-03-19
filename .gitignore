@@ -4,5 +4,11 @@ data.json
 # macOS
 .DS_Store
 
+# Python
+__pycache__/
+.ruff_cache/
+.venv/
+*.pyc
+
 # Claude Code session
 .claude/

@@ -11,11 +11,23 @@ ddr         # только refresh (обновить data.json)
 ddw         # watch-режим: refresh каждые 60 сек
 ```
 
+`dd`, `ddr` и `ddw` это локальные shell aliases/functions, не часть этого репозитория.
+
 Или вручную:
 ```sh
-python3 refresh.py
+uv run python refresh.py
 python3 -m http.server -d /Users/doc/notes/dd 8787
 # → открыть http://localhost:8787
+```
+
+## Python tooling
+
+Проект использует `uv` для Python tooling и локального окружения.
+
+```sh
+uv sync --dev
+uv run python refresh.py
+uv run ruff check refresh.py tests
 ```
 
 ## Файлы
@@ -23,10 +35,13 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
 | Файл | Назначение |
 |------|-----------|
 | `projects.json` | Реестр проектов (редактировать сюда) |
-| `notes.json` | Заметки к проектам (источник истины) |
+| `notes.json` | Начальные/shared заметки (seed для UI) |
 | `refresh.py` | Сбор данных → `data.json` |
-| `index.html` | Дашборд (статичный HTML+JS) |
+| `index.html` | HTML-оболочка |
+| `styles.css` | Стили дашборда |
+| `app.js` | UI-логика, фильтры, заметки, рендер |
 | `favicon.svg` | Иконка браузера |
+| `tests/` | Unit- и smoke-checks для collector и UI contract |
 | `data.json` | Генерируется, **не коммитить** |
 
 ## Добавить проект
@@ -39,6 +54,8 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
   "description": "Краткое описание",
   "tech": ["Python", "FastAPI"],
   "path": "/путь/к/проекту",
+  "work": true,
+  "archived": false,
   "roadmap": {
     "file": "ROADMAP.md",
     "section": "Next Steps",
@@ -52,6 +69,15 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
 - `next_steps` — нумерованный или маркированный список как todo
 - `phase_status` — заголовки с `✅` / `⬜` (формат monty)
 
+Поля `projects.json`:
+- `id` — идентификатор проекта
+- `description` — короткое описание на карточке
+- `tech` — теги стека для UI и фильтров
+- `path` — абсолютный путь к проекту
+- `work` — пометка рабочих проектов
+- `archived` — убрать проект из основного списка в архив
+- `roadmap` — опциональная конфигурация парсинга roadmap
+
 Архивировать проект (убрать с главного экрана, данные продолжают собираться):
 ```json
 { "id": "old-project", "archived": true, ... }
@@ -60,16 +86,18 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
 ## UI
 
 ### Карточка проекта
-- **Цветная полоска слева**: 🔴 >10 изменений · 🟡 1–10 · 🟢 clean · ⬜ без git
-- **Пилюли** справа от ветки: `↑N` unpushed · `↓N` за upstream · `⎇ N` других веток · `📦 N` stash
-- **Unpushed diff**: `+X −Y` строк в непушнутых коммитах
-- **stale** — последний коммит >30 дней назад
-- **Roadmap** — прогресс-бар + pending задачи из файла проекта
-- **Клик** — раскрыть (recent commits + ветки)
-- **Двойной клик** — скопировать путь проекта в буфер
+- **Цветная полоска слева**: 🔴 проблемы / >10 изменений · 🟡 1–10 · 🟢 clean · ⬜ без git
+- **Badge `работа` + фиолетовый акцент карточки** — рабочие проекты считываются быстрее
+- **Пилюли** справа от ветки: `↑N` локально · `↓N` за upstream · `⎇ N` других веток · `📦 N` stash
+- **Attention row** — отдельные статусы для `давно без коммита`, `нет upstream`, `roadmap: N задач`, `путь не найден`
+- **Diff локальных коммитов** — `+X −Y` строк в непушнутых коммитах
+- **Roadmap** — прогресс-бар + pending-задачи из файла проекта
+- **Кнопка `Скопировать путь`** — явное действие вместо hidden double-click
+- **Кнопка `Открыть roadmap`** — открывает файл roadmap, если он найден
+- **`Enter` / `Space` на карточке** — раскрыть recent commits + ветки
 
 ### Заметки
-Кликнуть `add note…` на карточке → textarea.
+Кликнуть `добавить заметку…` на карточке → textarea.
 
 Поддерживаемый синтаксис:
 ```
@@ -82,20 +110,23 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
 - `[ ]` / `[x]` — кликабельные чекбоксы (можно и без `- ` префикса)
 - Стандартный markdown тоже работает: `- [ ] задача`
 - `Enter` — сохранить, `Shift+Enter` — перенос, `Esc` — отмена
-- Хранится в `localStorage`; для постоянства — вынести в `notes.json`
+- Браузерные правки хранятся в `localStorage`
+- `notes.json` используется как начальный/shared seed, но не обновляется из UI автоматически
 
 ### Фильтры и сортировка
 
 | Кнопка | Фильтр | Сортировка |
 |--------|--------|-----------|
-| All | все | по активности (изменения + дата) |
-| Dirty | только с изменениями | по кол-ву изменений ↓ |
-| Stale | только stale | старые коммиты сверху |
-| Clean | только clean | по алфавиту |
+| Все | все | порядок collector + текущие проблемы |
+| Работа | только `work=true` | порядок collector |
+| Грязные | только с изменениями | по кол-ву изменений ↓ |
+| Старые | только давно без коммитов | старые коммиты сверху |
+| Чистые | только clean | по алфавиту |
 
 - **Теги технологий** — фильтр по стеку (топ-6 по частоте)
 - **Поиск** — по имени, описанию, стеку, тексту заметок
 - **Архив** — секция `▸ Архив (N)` внизу, раскрывается кликом
+- **Панель фильтров** — sticky, чтобы фильтры не терялись при скролле
 
 ### Клавиши
 | Клавиша | Действие |
@@ -106,7 +137,26 @@ python3 -m http.server -d /Users/doc/notes/dd 8787
 
 ## Что собирает refresh.py
 
-- **git**: ветка, другие ветки, modified/untracked/staged, ahead/behind/upstream, stash count, последние 5 коммитов, unpushed diff (+X −Y строк)
+- **git**: ветка, другие ветки, изменено/новое/в индексе, ahead/behind/upstream, stash count, последние 5 коммитов, diff локальных коммитов (+X −Y строк)
 - **roadmap**: из файла проекта по конфигу `projects.json`
-- **note**: из `notes.json` (перекрывается `localStorage` в браузере)
-- **archived**: из `projects.json`
+- **note**: из `notes.json` (перекрывается browser-local `localStorage`)
+- **work** / **archived** / **exists**: из `projects.json` и проверки пути
+- **status** / **error**: нормализованный статус проекта (`ok`, `no_git`, `missing_path`)
+- **roadmap_status** / **roadmap_error**: статус загрузки roadmap (`ok`, `missing_file`, `missing_section`, `empty`, `unsupported_mode`)
+
+## Проверки
+
+```sh
+uv run python -m unittest tests.test_refresh
+node --test tests/test_dashboard_smoke.mjs
+uv run ruff check refresh.py tests
+```
+
+После `uv sync --dev` `ruff` ставится в локальное `.venv` автоматически.
+
+## Troubleshooting
+
+- **Порт занят**: выбери другой, например `python3 -m http.server -d /Users/doc/notes/dd 8788`
+- **Путь проекта не существует**: карточка не скрывается, а помечается как `Путь не найден`
+- **Нет upstream**: это отдельный статус в attention row; проверь `git branch --set-upstream-to`
+- **Clipboard не работает**: в некоторых браузерах API доступен только в secure context; UI использует fallback, но поведение зависит от браузера
