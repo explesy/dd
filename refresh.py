@@ -303,7 +303,7 @@ def sort_key(p: dict):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
+def build_data() -> dict:
     project_defs = load_projects()
     notes = load_notes()
 
@@ -322,9 +322,20 @@ def main():
         "projects": projects,
     }
 
+    return data
+
+
+def write_data(data: dict) -> Path:
     outfile = SCRIPT_DIR / "data.json"
     outfile.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return outfile
+
+
+def main() -> dict:
+    data = build_data()
+    write_data(data)
     print(f"[{datetime.now().strftime('%H:%M:%S')}] data.json updated")
+    return data
 
 
 if __name__ == "__main__":

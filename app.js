@@ -169,7 +169,7 @@ async function softReload() {
   els.reloadBtn.textContent = "↻ …";
   els.timestamp.textContent = "Обновляю…";
 
-  const data = await loadData();
+  const data = await refreshData();
   if (data) {
     render(data);
     els.reloadBtn.textContent = "✓ Готово";
@@ -180,6 +180,28 @@ async function softReload() {
   } else {
     els.reloadBtn.textContent = "↻ Обновить";
     els.reloadBtn.disabled = false;
+  }
+}
+
+async function refreshData() {
+  try {
+    const response = await fetch("/refresh", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const payload = await response.json();
+    if (!payload.ok || !payload.data) throw new Error(payload.error || "Refresh failed");
+
+    els.error.style.display = "none";
+    return payload.data;
+  } catch {
+    els.error.style.display = "block";
+    els.error.innerHTML =
+      "Не удалось обновить данные через /refresh" +
+      "<code>uv run python serve.py --port 8787</code>";
+    return null;
   }
 }
 
@@ -194,7 +216,7 @@ async function loadData() {
     els.error.style.display = "block";
     els.error.innerHTML =
       "Не удалось загрузить data.json" +
-      "<code>python3 refresh.py && python3 -m http.server -d /Users/doc/notes/dd 8787</code>";
+      "<code>uv run python serve.py --port 8787</code>";
     return null;
   }
 }

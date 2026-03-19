@@ -50,11 +50,7 @@ function extractFunctionBody(source, name) {
 }
 
 before(async () => {
-  const refresh = spawn("python3", ["refresh.py"], { cwd: root, stdio: "inherit" });
-  const [refreshCode] = await once(refresh, "exit");
-  assert.equal(refreshCode, 0, "refresh.py should succeed before smoke checks");
-
-  server = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1"], {
+  server = spawn("python3", ["serve.py", "--port", String(port), "--bind", "127.0.0.1"], {
     cwd: root,
     stdio: "ignore",
   });
@@ -68,6 +64,12 @@ after(async () => {
 });
 
 test("page serves split assets and normalized data contract", async () => {
+  const refreshResponse = await fetch(`${baseUrl}/refresh`, { method: "POST" });
+  assert.equal(refreshResponse.status, 200);
+  const refreshPayload = await refreshResponse.json();
+  assert.equal(refreshPayload.ok, true);
+  assert.ok(Array.isArray(refreshPayload.data.projects));
+
   const [htmlResponse, cssResponse, jsResponse, dataResponse] = await Promise.all([
     fetch(`${baseUrl}/`),
     fetch(`${baseUrl}/styles.css`),
@@ -111,4 +113,5 @@ test("app.js keeps global event binding out of render", async () => {
   assert.ok(!renderBody.includes("addEventListener"), "render() should not register listeners");
   assert.ok(bindBody.includes("addEventListener"), "bindStaticEvents() should register listeners");
   assert.ok(!source.includes("project.exists !== false"), "missing projects should not be filtered out");
+  assert.ok(source.includes('fetch("/refresh"'), "soft reload should call the refresh endpoint");
 });

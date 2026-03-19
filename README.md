@@ -15,8 +15,7 @@ ddw         # watch-режим: refresh каждые 60 сек
 
 Или вручную:
 ```sh
-uv run python refresh.py
-python3 -m http.server -d /Users/doc/notes/dd 8787
+uv run python serve.py --port 8787
 # → открыть http://localhost:8787
 ```
 
@@ -37,6 +36,7 @@ uv run ruff check refresh.py tests
 | `projects.json` | Реестр проектов (редактировать сюда) |
 | `notes.json` | Начальные/shared заметки (seed для UI) |
 | `refresh.py` | Сбор данных → `data.json` |
+| `serve.py` | Локальный сервер + `POST /refresh` |
 | `index.html` | HTML-оболочка |
 | `styles.css` | Стили дашборда |
 | `app.js` | UI-логика, фильтры, заметки, рендер |
@@ -132,8 +132,13 @@ uv run ruff check refresh.py tests
 | Клавиша | Действие |
 |---------|---------|
 | `/` | Фокус на поиск |
-| `r` | Перезагрузить страницу |
+| `r` | Запустить refresh через сервер и перечитать данные |
 | `Esc` | Сбросить все фильтры |
+
+### Обновление данных
+- При запуске через `serve.py` кнопка `↻ Обновить` и клавиша `r` сами вызывают `POST /refresh`
+- В обычной работе `ddr` больше не нужен
+- `ddr` всё ещё полезен как отдельная ручная команда, если хочешь просто пересобрать `data.json` без поднятия сервера
 
 ## Что собирает refresh.py
 
@@ -149,14 +154,15 @@ uv run ruff check refresh.py tests
 ```sh
 uv run python -m unittest tests.test_refresh
 node --test tests/test_dashboard_smoke.mjs
-uv run ruff check refresh.py tests
+uv run ruff check refresh.py serve.py tests
 ```
 
 После `uv sync --dev` `ruff` ставится в локальное `.venv` автоматически.
 
 ## Troubleshooting
 
-- **Порт занят**: выбери другой, например `python3 -m http.server -d /Users/doc/notes/dd 8788`
+- **Порт занят**: выбери другой, например `uv run python serve.py --port 8788`
 - **Путь проекта не существует**: карточка не скрывается, а помечается как `Путь не найден`
 - **Нет upstream**: это отдельный статус в attention row; проверь `git branch --set-upstream-to`
+- **Кнопка refresh не работает**: проверь, что дашборд запущен через `serve.py`, а не через `python -m http.server`
 - **Clipboard не работает**: в некоторых браузерах API доступен только в secure context; UI использует fallback, но поведение зависит от браузера
