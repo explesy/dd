@@ -1,5 +1,11 @@
 [
   {
+    "id": "dd",
+    "description": "Этот дашборд",
+    "tech": ["Python", "HTML", "JS"],
+    "path": "/Users/doc/notes/dd"
+  },
+  {
     "id": "mediadistri",
     "description": "Telegram-бот для медиа-обменов",
     "tech": [
