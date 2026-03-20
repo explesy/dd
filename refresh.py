@@ -43,8 +43,11 @@ def load_notes() -> dict[str, str]:
 # ── Git helpers ───────────────────────────────────────────────────────────────
 
 def run(cmd: list[str], cwd: str) -> str:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    return result.stdout.strip()
+    try:
+        result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=10)
+        return result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return ""
 
 
 def default_git_state() -> dict:
@@ -248,6 +251,7 @@ def collect_project(proj: dict) -> dict:
         "path": path,
         "work": bool(proj.get("work", False)),
         "archived": bool(proj.get("archived", False)),
+        "stale_days": int(proj.get("stale_days", 30)),
         "exists": p.exists(),
         "status": "ok",
         "error": None,
