@@ -235,8 +235,8 @@ return { detectBrowserLocale, resolveLocalePreference };`,
   assert.equal(resolveLocalePreference(null, "ru-RU"), "ru");
   assert.equal(resolveLocalePreference("de", "en-US"), "en");
 
-  assert.ok(source.includes('headerSubtitle: "Project Dashboard"'));
-  assert.ok(source.includes('headerSubtitle: "Дашборд проектов"'));
+  assert.ok(source.includes('headerSubtitle: "Dashboard of Dashboards"'));
+  assert.ok(source.includes('headerSubtitle: "Дашборд дашбордов"'));
   assert.ok(source.includes('loadDataError: ({ message }) => `Could not load data.json: ${message}`'));
   assert.ok(source.includes('loadDataError: ({ message }) => `Не удалось загрузить data.json: ${message}`'));
 });
