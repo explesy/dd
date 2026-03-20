@@ -108,7 +108,7 @@ Look at the directory: read the README, package.json / pyproject.toml / Cargo.to
 go.mod (whichever exists), and list any markdown files in the root that look like a
 roadmap or status file (ROADMAP.md, STATUS.md, TODO.md, PLAN.md, etc.).
 
-Then open /Users/<YOU>/notes/dd/projects.json and append a new entry with:
+Then open the repository's `projects.json` and append a new entry with:
 - "id": short slug based on the directory name
 - "description": one sentence from the README
 - "tech": array of main languages and frameworks from the dependency file
@@ -144,7 +144,7 @@ Entry fields:
 - "roadmap": only if a suitable file was found (modes: checkboxes / next_steps /
   phase_status — pick based on actual file content)
 
-Open /Users/<YOU>/notes/dd/projects.json and append the new entries, skipping any
+Open the repository's `projects.json` and append the new entries, skipping any
 project whose "id" already exists. Show a summary table before writing.
 ```
 
@@ -153,7 +153,7 @@ project whose "id" already exists. Show a summary table before writing.
 ### Configure roadmap for an existing entry
 
 ```
-The project "<ID>" is already in /Users/<YOU>/notes/dd/projects.json but has no
+The project "<ID>" is already in the repository's `projects.json` but has no
 "roadmap" configured.
 
 Look at the project path listed for that entry. Find any markdown file that describes
@@ -175,7 +175,7 @@ Update the entry in projects.json with the "roadmap" object. Show the diff befor
 ### Full first-time setup
 
 ```
-Set up the DD dashboard at /Users/<YOU>/notes/dd for my local projects.
+Set up the DD dashboard in this repository for my local projects.
 
 1. If projects.json does not exist, copy projects.example.json to projects.json.
 2. Scan the following directories for git repos: <DIR_1>, <DIR_2>, ...
@@ -183,8 +183,8 @@ Set up the DD dashboard at /Users/<YOU>/notes/dd for my local projects.
 3. For each repo found, read README + dependency manifest + any roadmap-like file.
 4. Build projects.json entries (id, description, tech, path, work, roadmap).
 5. Write the final projects.json.
-6. Run: cd /Users/<YOU>/notes/dd && uv run python refresh.py
-   and confirm data.json was updated.
+6. Run `uv run python refresh.py` from the DD repository root
+   and confirm `data.json` was updated.
 
 Ask me before writing anything. Show the full proposed projects.json first.
 ```
