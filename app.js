@@ -16,8 +16,7 @@ const TRANSLATIONS = {
   en: {
     documentTitle: "DD Project Dashboard",
     headerTitle: "DD",
-    headerSubtitle: "Project Dashboard",
-    languageLabel: "Language",
+    headerSubtitle: "Dashboard of Dashboards",
     languageSwitcher: "Language switcher",
     reload: "Refresh",
     reloading: "Refreshing…",
@@ -84,8 +83,7 @@ const TRANSLATIONS = {
   ru: {
     documentTitle: "DD Project Dashboard",
     headerTitle: "DD",
-    headerSubtitle: "Дашборд проектов",
-    languageLabel: "Язык",
+    headerSubtitle: "Дашборд дашбордов",
     languageSwitcher: "Переключатель языка",
     reload: "Обновить",
     reloading: "Обновляю…",
@@ -178,7 +176,6 @@ function resolveLocalePreference(storedLocale, browserLanguage) {
 function initializeElements() {
   els.headerTitle = document.getElementById("headerTitle");
   els.headerSubtitle = document.getElementById("headerSubtitle");
-  els.localeLabel = document.getElementById("localeLabel");
   els.localeToggle = document.getElementById("localeToggle");
   els.localeButtons = Array.from(document.querySelectorAll("#localeToggle .locale-btn"));
   els.timestamp = document.getElementById("timestamp");
@@ -227,7 +224,8 @@ function relativeDate(iso) {
 
 function isStale(project) {
   if (!project.last_commit?.date) return false;
-  return (Date.now() - new Date(project.last_commit.date).getTime()) / 86400000 > 30;
+  const threshold = project.stale_days ?? 30;
+  return (Date.now() - new Date(project.last_commit.date).getTime()) / 86400000 > threshold;
 }
 
 function daysAgo(project) {
@@ -263,6 +261,8 @@ function updateTimestamp() {
     return;
   }
   els.timestamp.textContent = t("updatedAt", { value: relativeDate(state.generatedAt) });
+  const ageHours = (Date.now() - new Date(state.generatedAt).getTime()) / 3600000;
+  els.timestamp.dataset.stale = String(ageHours > 1);
 }
 
 function updateLocaleButtons() {
@@ -270,7 +270,6 @@ function updateLocaleButtons() {
   document.title = t("documentTitle");
   els.headerTitle.textContent = t("headerTitle");
   els.headerSubtitle.textContent = t("headerSubtitle");
-  els.localeLabel.textContent = t("languageLabel");
   els.localeToggle.setAttribute("aria-label", t("languageSwitcher"));
   els.localeButtons.forEach((button) => {
     const active = button.dataset.locale === state.locale;
@@ -527,11 +526,19 @@ function applyFilters() {
   persistViewState();
 }
 
+const SORT_SUFFIX = {
+  changes: " ↓",
+  date:    " ↑",
+  name:    " A–Z",
+};
+
 function updateStatusButtons() {
   els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
     const filter = button.dataset.filter;
-    button.textContent = TRANSLATIONS[state.locale].filters[filter];
+    const label = TRANSLATIONS[state.locale].filters[filter];
     const isActive = filter === state.activeStatus;
+    const suffix = isActive && state.currentSort !== "default" ? (SORT_SUFFIX[state.currentSort] ?? "") : "";
+    button.textContent = label + suffix;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });

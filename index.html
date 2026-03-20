@@ -16,15 +16,15 @@
       <p class="header-subtitle" id="headerSubtitle">Project Dashboard</p>
     </div>
     <div class="header-right">
-      <div class="locale-control">
-        <span class="locale-label" id="localeLabel">Language</span>
-        <div class="locale-toggle" id="localeToggle" aria-label="Language switcher">
-          <button class="locale-btn active" data-locale="en" type="button">EN</button>
-          <button class="locale-btn" data-locale="ru" type="button">RU</button>
-        </div>
+      <div class="locale-toggle" id="localeToggle" aria-label="Language switcher">
+        <button class="locale-btn active" data-locale="en" type="button">EN</button>
+        <button class="locale-btn" data-locale="ru" type="button">RU</button>
       </div>
-      <span class="timestamp" id="timestamp"></span>
-      <button class="btn" id="reloadBtn" type="button">Refresh</button>
+      <div class="header-sep"></div>
+      <div class="header-data">
+        <span class="timestamp" id="timestamp"></span>
+        <button class="btn btn-reload" id="reloadBtn" type="button">Refresh</button>
+      </div>
     </div>
   </header>
 
