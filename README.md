@@ -49,7 +49,7 @@ Example project entry:
   "path": "/absolute/path/to/project",
   "work": true,
   "project_state": "active",
-  "project_type": "client",
+  "project_type": "work",
   "pinned": false,
   "archived": false,
   "roadmap": {
@@ -71,7 +71,7 @@ Supported roadmap modes:
 Optional project fields:
 
 - `project_state`: `active`, `paused`, `blocked`, `waiting`, or `maintenance`
-- `project_type`: freeform category such as `client`, `job`, `personal`, `infra`, `experiment`
+- `project_type`: one of `work`, `personal`, `learn`, `infra`
 - `pinned`: keeps a project near the top even when git activity is quiet
 - `stale_days`: custom stale threshold for that project
 
@@ -79,6 +79,8 @@ Saved view behavior:
 
 - `Personal` includes projects explicitly marked with `"project_type": "personal"`
 - If `project_type` is not set, `Personal` also includes projects where `"work"` is not `true`
+- `Learn` includes projects with `"project_type": "learn"`
+- `Infra` includes projects with `"project_type": "infra"`
 
 ## Features
 
@@ -87,7 +89,7 @@ Saved view behavior:
 - Notes: inline editable notes with checkbox support
 - Manual project framing: state, type, and pinning
 - Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
-- Local project controls: each card can be pinned and given a local state override in the UI, stored in browser localStorage
+- Local project controls: each card can be pinned, moved into/out of archive, and given local state/type overrides in the UI, stored in browser localStorage
 - Filters and views: saved views, status filters, top tech tags, text search, archive section
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
@@ -132,7 +134,7 @@ Then open the repository's `projects.json` and append a new entry with:
 - "description": one sentence from the README
 - "tech": array of main languages and frameworks from the dependency file
 - "path": absolute path to the project
-- "work": true if it looks like a client or employer project, false otherwise
+- "work": true if it looks like a team or employer project, false otherwise
 - "roadmap": object if a roadmap file exists — pick the most appropriate mode:
     "checkboxes"   for files with - [ ] / - [x] items
     "next_steps"   for plain numbered or bulleted lists
@@ -159,7 +161,7 @@ Entry fields:
 - "tech": main languages/frameworks from dependency files; fall back to file
   extensions if no manifest found
 - "path": absolute path
-- "work": true only if the README or package name clearly indicates a client project
+- "work": true only if the README or package name clearly indicates a work project
 - "roadmap": only if a suitable file was found (modes: checkboxes / next_steps /
   phase_status — pick based on actual file content)
 

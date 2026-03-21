@@ -46,17 +46,23 @@
       <label class="search-shell" for="searchInput">
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input class="search-input" id="searchInput" placeholder="Search by name, tech, notes…" type="search">
+        <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">×</button>
       </label>
       <span class="results-count" id="resultsCount"></span>
     </div>
   </div>
 
   <div class="grid" id="grid"></div>
-  <div class="empty-state" id="emptyState">No projects match the current filters.</div>
+  <div class="empty-state" id="emptyState">
+    <div class="empty-state-title" id="emptyStateTitle">No projects match the current filters.</div>
+    <div class="empty-state-body" id="emptyStateBody"></div>
+    <code class="empty-state-code" id="emptyStateCode"></code>
+    <button class="empty-state-action" id="emptyStateAction" type="button"></button>
+  </div>
 
-  <div id="archiveSection" style="display:none; margin-top:24px;">
+  <div class="archive-section" id="archiveSection" style="display:none;">
     <button class="archive-toggle" id="archiveToggle" type="button"></button>
-    <div class="grid" id="archiveGrid" style="display:none; margin-top:10px;"></div>
+    <div class="grid archive-grid" id="archiveGrid" style="display:none;"></div>
   </div>
 
   <div class="error-msg" id="error" style="display:none"></div>

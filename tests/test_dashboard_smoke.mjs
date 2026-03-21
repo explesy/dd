@@ -229,8 +229,11 @@ test("app.js keeps global event binding out of render and preserves locale helpe
   assert.ok(source.includes('const PROJECT_OVERRIDE_PREFIX = "dd:project:";'));
   assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
   assert.ok(source.includes("function applyProjectOverrides(project)"));
+  assert.ok(source.includes("function buildSearchHaystack(project)"));
   assert.ok(source.includes("function getAttentionScore(project)"));
+  assert.ok(source.includes('archived: Object.hasOwn(overrides, "archived")'));
   assert.ok(source.includes("project.project_state"));
+  assert.ok(source.includes("project.roadmap?.pending?.join"));
 
   const helperFactory = new Function(
     `const SUPPORTED_LOCALES = ["en", "ru"];

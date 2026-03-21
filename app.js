@@ -13,7 +13,8 @@ const SORT_FOR = {
   clean: "name",
 };
 
-const SAVED_VIEWS = ["default", "pinned", "blocked", "waiting", "personal"];
+const SAVED_VIEWS = ["default", "pinned", "blocked", "waiting", "personal", "learn", "infra"];
+const PROJECT_TYPE_OPTIONS = ["work", "personal", "learn", "infra"];
 
 const TRANSLATIONS = {
   en: {
@@ -39,10 +40,21 @@ const TRANSLATIONS = {
       blocked: "Blocked",
       waiting: "Waiting",
       personal: "Personal",
+      learn: "Learn",
+      infra: "Infra",
     },
     searchPlaceholder: "Search by name, tech, notes…",
     searchAriaLabel: "Search projects",
     emptyState: "No projects match the current filters.",
+    emptyFilteredTitle: "No projects match this view",
+    emptyFilteredBody: "Clear a filter, switch the saved view, or broaden the search.",
+    emptyBootstrapTitle: "No active projects yet",
+    emptyBootstrapBody: "Add at least one project entry to your local registry, then refresh the dashboard.",
+    emptyArchiveTitle: "Only archived projects are left",
+    emptyArchiveBody: "Open the archive below if you want to browse inactive projects.",
+    emptyStateRegistryHint: "projects.json",
+    emptyActionClearFilters: "Clear filters",
+    emptyActionOpenArchive: "Open archive",
     archiveClosed: ({ count }) => `▸ Archive (${count})`,
     archiveOpen: ({ count }) => `▾ Archive (${count})`,
     noScript: "This dashboard requires JavaScript.",
@@ -63,9 +75,13 @@ const TRANSLATIONS = {
     copyPath: "Copy path",
     openFolder: "Folder",
     openRoadmap: "Open roadmap",
+    archiveAction: "Archive",
+    restoreAction: "Restore",
     pinAction: "Pin",
     pinnedAction: "Pinned",
     stateAction: "State",
+    typeAction: "Type",
+    clearSearchAction: "Clear search",
     workBadge: "work",
     archivedBadge: "archived",
     states: {
@@ -76,12 +92,10 @@ const TRANSLATIONS = {
       maintenance: "maintenance",
     },
     types: {
-      client: "client",
-      job: "job",
-      personal: "personal",
-      infra: "infra",
-      experiment: "experiment",
       work: "work",
+      personal: "personal",
+      learn: "learn",
+      infra: "infra",
     },
     recentCommits: "Recent commits",
     otherBranches: "Other branches",
@@ -151,10 +165,21 @@ const TRANSLATIONS = {
       blocked: "Блокеры",
       waiting: "Ожидание",
       personal: "Личное",
+      learn: "Обучение",
+      infra: "Инфра",
     },
     searchPlaceholder: "Поиск по имени, стеку, заметкам…",
     searchAriaLabel: "Поиск проектов",
     emptyState: "Нет проектов под текущими фильтрами.",
+    emptyFilteredTitle: "Под этот вид ничего не подходит",
+    emptyFilteredBody: "Сбрось фильтр, переключи сохраненный вид или расширь поиск.",
+    emptyBootstrapTitle: "Активных проектов пока нет",
+    emptyBootstrapBody: "Добавь хотя бы один проект в локальный реестр и обнови дашборд.",
+    emptyArchiveTitle: "Остался только архив",
+    emptyArchiveBody: "Открой архив ниже, если хочешь посмотреть неактивные проекты.",
+    emptyStateRegistryHint: "projects.json",
+    emptyActionClearFilters: "Сбросить фильтры",
+    emptyActionOpenArchive: "Открыть архив",
     archiveClosed: ({ count }) => `▸ Архив (${count})`,
     archiveOpen: ({ count }) => `▾ Архив (${count})`,
     noScript: "Для дашборда нужен JavaScript.",
@@ -175,9 +200,13 @@ const TRANSLATIONS = {
     copyPath: "Скопировать путь",
     openFolder: "Папка",
     openRoadmap: "Открыть roadmap",
+    archiveAction: "В архив",
+    restoreAction: "Вернуть",
     pinAction: "Закрепить",
     pinnedAction: "Закреплено",
     stateAction: "Статус",
+    typeAction: "Тип",
+    clearSearchAction: "Очистить поиск",
     workBadge: "работа",
     archivedBadge: "архив",
     states: {
@@ -188,12 +217,10 @@ const TRANSLATIONS = {
       maintenance: "поддержка",
     },
     types: {
-      client: "клиент",
-      job: "работа",
-      personal: "личный",
-      infra: "инфра",
-      experiment: "эксперимент",
       work: "работа",
+      personal: "личный",
+      learn: "обучение",
+      infra: "инфра",
     },
     recentCommits: "Недавние коммиты",
     otherBranches: "Другие ветки",
@@ -278,6 +305,7 @@ function initializeElements() {
   els.statusFilters = document.getElementById("statusFilters");
   els.techFilters = document.getElementById("techFilters");
   els.searchInput = document.getElementById("searchInput");
+  els.searchClear = document.getElementById("searchClear");
   els.resultsCount = document.getElementById("resultsCount");
   els.grid = document.getElementById("grid");
   els.archiveSection = document.getElementById("archiveSection");
@@ -286,6 +314,10 @@ function initializeElements() {
   els.error = document.getElementById("error");
   els.toast = document.getElementById("toast");
   els.emptyState = document.getElementById("emptyState");
+  els.emptyStateTitle = document.getElementById("emptyStateTitle");
+  els.emptyStateBody = document.getElementById("emptyStateBody");
+  els.emptyStateCode = document.getElementById("emptyStateCode");
+  els.emptyStateAction = document.getElementById("emptyStateAction");
   els.noScript = document.getElementById("noScript");
 }
 
@@ -428,6 +460,35 @@ function savedViewLabel(view) {
   return TRANSLATIONS[state.locale].savedViews[view] || view;
 }
 
+function updateSearchClearButton() {
+  const visible = Boolean(state.searchQuery);
+  els.searchClear.classList.toggle("visible", visible);
+  els.searchClear.disabled = !visible;
+  els.searchClear.setAttribute("aria-hidden", String(!visible));
+}
+
+function hasActiveFilters() {
+  return (
+    state.activeView !== "default" ||
+    state.activeStatus !== "all" ||
+    Boolean(state.activeTech) ||
+    Boolean(state.searchQuery)
+  );
+}
+
+function resetFiltersToDefault() {
+  state.activeView = "default";
+  state.activeStatus = "all";
+  state.activeTech = null;
+  state.searchQuery = "";
+  state.currentSort = "default";
+  buildSavedViews();
+  updateStatusButtons();
+  buildTechFilters();
+  els.searchInput.value = "";
+  applyFilters();
+}
+
 function toast(message) {
   els.toast.textContent = message;
   els.toast.classList.add("show");
@@ -444,7 +505,6 @@ function loadViewState() {
     state.activeStatus = persisted.activeStatus || "all";
     state.activeTech = persisted.activeTech || null;
     state.searchQuery = persisted.searchQuery || "";
-    state.archiveOpen = Boolean(persisted.archiveOpen);
     state.currentSort = SORT_FOR[state.activeStatus] || "default";
   } catch {
     state.activeView = "default";
@@ -460,7 +520,6 @@ function persistViewState() {
       activeStatus: state.activeStatus,
       activeTech: state.activeTech,
       searchQuery: state.searchQuery,
-      archiveOpen: state.archiveOpen,
     }),
   );
 }
@@ -503,14 +562,11 @@ function applyProjectOverrides(project) {
   const overrides = loadProjectOverrides(project.id);
   return {
     ...project,
+    archived: Object.hasOwn(overrides, "archived") ? overrides.archived : Boolean(project.archived),
     pinned: Object.hasOwn(overrides, "pinned") ? overrides.pinned : Boolean(project.pinned),
     project_state: Object.hasOwn(overrides, "project_state") ? overrides.project_state : (project.project_state || null),
+    project_type: Object.hasOwn(overrides, "project_type") ? overrides.project_type : (project.project_type || null),
   };
-}
-
-function hasProjectOverrides(project) {
-  const overrides = loadProjectOverrides(project.id);
-  return Object.keys(overrides).some((key) => key === "pinned" || key === "project_state");
 }
 
 function getNote(id) {
@@ -530,10 +586,6 @@ function updateProjectOverride(projectId, updates) {
   const current = loadProjectOverrides(projectId);
   const next = { ...current, ...updates };
   persistProjectOverrides(projectId, next);
-}
-
-function resetProjectOverrides(projectId) {
-  localStorage.removeItem(projectOverrideKey(projectId));
 }
 
 function resolveNote(project) {
@@ -755,9 +807,33 @@ function matchesSavedView(project) {
       return project.project_state === "waiting";
     case "personal":
       return project.project_type === "personal" || (!project.project_type && !project.work);
+    case "learn":
+      return project.project_type === "learn";
+    case "infra":
+      return project.project_type === "infra";
     default:
       return true;
   }
+}
+
+function buildSearchHaystack(project) {
+  const note = resolveNote(project);
+  const roadmapItems = project.roadmap?.pending?.join(" ") || "";
+  const stateLabel = projectStateLabel(project) || "";
+  const typeLabel = projectTypeLabel(project) || "";
+  const branch = project.branch || "";
+  return [
+    project.name,
+    project.description,
+    project.tech.join(" "),
+    note,
+    roadmapItems,
+    stateLabel,
+    typeLabel,
+    branch,
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 function matchesFilters(project) {
@@ -770,8 +846,7 @@ function matchesFilters(project) {
 
   if (state.searchQuery) {
     const query = state.searchQuery.toLowerCase();
-    const note = resolveNote(project).toLowerCase();
-    const haystack = `${project.name} ${project.description} ${project.tech.join(" ")} ${note}`.toLowerCase();
+    const haystack = buildSearchHaystack(project);
     if (!haystack.includes(query)) return false;
   }
 
@@ -793,8 +868,47 @@ function applyFilters() {
 
   els.resultsCount.textContent =
     visible < state.allProjects.length ? `${visible} / ${state.allProjects.length}` : "";
-  els.emptyState.style.display = visible === 0 ? "block" : "none";
+  updateEmptyState(visible);
+  updateSearchClearButton();
   persistViewState();
+}
+
+function updateEmptyState(visibleCount) {
+  if (visibleCount > 0) {
+    els.emptyState.style.display = "none";
+    return;
+  }
+
+  let title = t("emptyFilteredTitle");
+  let body = t("emptyFilteredBody");
+  let code = "";
+  let action = "";
+  let actionLabel = "";
+
+  if (!state.allProjects.length && state.archivedProjects.length) {
+    title = t("emptyArchiveTitle");
+    body = t("emptyArchiveBody");
+    if (!state.archiveOpen) {
+      action = "open-archive";
+      actionLabel = t("emptyActionOpenArchive");
+    }
+  } else if (!state.allProjects.length) {
+    title = t("emptyBootstrapTitle");
+    body = t("emptyBootstrapBody");
+    code = t("emptyStateRegistryHint");
+  } else if (hasActiveFilters()) {
+    action = "clear-filters";
+    actionLabel = t("emptyActionClearFilters");
+  }
+
+  els.emptyStateTitle.textContent = title;
+  els.emptyStateBody.textContent = body;
+  els.emptyStateCode.textContent = code;
+  els.emptyStateCode.style.display = code ? "inline-flex" : "none";
+  els.emptyStateAction.textContent = actionLabel;
+  els.emptyStateAction.dataset.action = action;
+  els.emptyStateAction.style.display = action ? "inline-flex" : "none";
+  els.emptyState.style.display = "block";
 }
 
 const SORT_SUFFIX = {
@@ -1249,6 +1363,36 @@ function buildActions(project) {
   stateField.appendChild(stateSelect);
   wrapper.appendChild(stateField);
 
+  const typeField = document.createElement("label");
+  typeField.className = "card-state-field";
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "card-state-select";
+  typeSelect.setAttribute("aria-label", t("typeAction"));
+
+  const typeEmptyOption = document.createElement("option");
+  typeEmptyOption.value = "";
+  typeEmptyOption.textContent = t("typeAction");
+  typeSelect.appendChild(typeEmptyOption);
+
+  PROJECT_TYPE_OPTIONS.forEach((typeKey) => {
+    const option = document.createElement("option");
+    option.value = typeKey;
+    option.textContent = projectTypeLabel({ project_type: typeKey }) || typeKey;
+    option.selected = project.project_type === typeKey;
+    typeSelect.appendChild(option);
+  });
+  if (!project.project_type) typeEmptyOption.selected = true;
+  typeSelect.addEventListener("click", (event) => event.stopPropagation());
+  typeSelect.addEventListener("change", () => {
+    updateProjectOverride(project.id, { project_type: typeSelect.value || null });
+    toast(t("projectMetaSaved"));
+    rerenderCurrentView({ focusProjectId: project.id });
+  });
+
+  typeField.appendChild(typeSelect);
+  wrapper.appendChild(typeField);
+
   const folderButton = document.createElement("button");
   folderButton.type = "button";
   folderButton.className = "card-action";
@@ -1268,6 +1412,19 @@ function buildActions(project) {
     await handleCopyPath(project);
   });
   wrapper.appendChild(copyButton);
+
+  const archiveButton = document.createElement("button");
+  archiveButton.type = "button";
+  archiveButton.className = "card-action";
+  archiveButton.textContent = project.archived ? t("restoreAction") : t("archiveAction");
+  archiveButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const nextArchived = !project.archived;
+    updateProjectOverride(project.id, { archived: nextArchived });
+    toast(t("projectMetaSaved"));
+    rerenderCurrentView();
+  });
+  wrapper.appendChild(archiveButton);
 
   if (project.roadmap?.path) {
     const roadmapButton = document.createElement("button");
@@ -1289,8 +1446,17 @@ function buildProjectIdentityBadges(project, archived = false) {
   const typeLabel = projectTypeLabel(project);
   const stateLabel = projectStateLabel(project);
 
-  if (typeLabel) parts.push(`<span class="card-chip type-chip">${esc(typeLabel)}</span>`);
-  if (project.work && !project.project_type) parts.push(`<span class="card-chip work-chip">${esc(t("workBadge"))}</span>`);
+  if (typeLabel) {
+    const view = project.project_type === "work" ? "work-filter" : project.project_type;
+    parts.push(
+      `<button class="card-chip type-chip chip-action" data-view="${esc(view)}" type="button">${esc(typeLabel)}</button>`,
+    );
+  }
+  if (project.work && !project.project_type) {
+    parts.push(
+      `<button class="card-chip work-chip chip-action" data-view="work-filter" type="button">${esc(t("workBadge"))}</button>`,
+    );
+  }
   if (stateLabel) {
     parts.push(
       `<span class="card-chip state-chip state-chip-${esc(project.project_state)}">${esc(stateLabel)}</span>`,
@@ -1411,6 +1577,26 @@ function buildCard(project, index, archived = false) {
     });
   });
 
+  card.querySelectorAll(".chip-action[data-view]").forEach((chip) => {
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const view = chip.dataset.view;
+      if (view === "work-filter") {
+        state.activeView = "default";
+        state.activeStatus = state.activeStatus === "work" ? "all" : "work";
+        state.currentSort = SORT_FOR[state.activeStatus] || "default";
+        buildSavedViews();
+        updateStatusButtons();
+        applyFilters();
+        return;
+      }
+
+      state.activeView = state.activeView === view ? "default" : view;
+      buildSavedViews();
+      applyFilters();
+    });
+  });
+
   const renderedPinControl = card.querySelector(".card-pin-toggle");
   if (renderedPinControl) renderedPinControl.replaceWith(buildPinControl(project));
 
@@ -1429,6 +1615,7 @@ function renderArchiveSection() {
     els.archiveGrid.appendChild(buildCard(project, index, true));
   });
   els.archiveGrid.style.display = state.archiveOpen ? "grid" : "none";
+  els.archiveToggle.setAttribute("aria-expanded", String(state.archiveOpen));
   els.archiveToggle.textContent = state.archiveOpen
     ? t("archiveOpen", { count: state.archivedProjects.length })
     : t("archiveClosed", { count: state.archivedProjects.length });
@@ -1442,15 +1629,19 @@ function applyLocaleToStaticUi() {
   updateStatusButtons();
   els.searchInput.placeholder = t("searchPlaceholder");
   els.searchInput.setAttribute("aria-label", t("searchAriaLabel"));
-  els.emptyState.textContent = t("emptyState");
+  els.searchClear.setAttribute("aria-label", t("clearSearchAction"));
+  els.searchClear.title = t("clearSearchAction");
+  updateSearchClearButton();
+  if (state.latestData) updateEmptyState(0);
   els.noScript.textContent = t("noScript");
 }
 
 function render(data) {
   state.latestData = data;
   state.generatedAt = data.generated_at || null;
-  state.allProjects = data.projects.filter((project) => !project.archived).map(applyProjectOverrides);
-  state.archivedProjects = data.projects.filter((project) => project.archived).map(applyProjectOverrides);
+  const projects = data.projects.map(applyProjectOverrides);
+  state.allProjects = projects.filter((project) => !project.archived);
+  state.archivedProjects = projects.filter((project) => project.archived);
 
   applyLocaleToStaticUi();
   els.grid.innerHTML = "";
@@ -1484,16 +1675,7 @@ function handleGlobalKeydown(event) {
   }
 
   if (event.key === "Escape") {
-    state.activeView = "default";
-    state.activeStatus = "all";
-    state.activeTech = null;
-    state.searchQuery = "";
-    state.currentSort = "default";
-    buildSavedViews();
-    updateStatusButtons();
-    buildTechFilters();
-    els.searchInput.value = "";
-    applyFilters();
+    resetFiltersToDefault();
   }
 }
 
@@ -1527,6 +1709,25 @@ function bindStaticEvents() {
   els.searchInput.addEventListener("input", (event) => {
     state.searchQuery = event.target.value.trim();
     applyFilters();
+  });
+
+  els.searchClear.addEventListener("click", () => {
+    state.searchQuery = "";
+    els.searchInput.value = "";
+    applyFilters();
+    els.searchInput.focus();
+  });
+
+  els.emptyStateAction.addEventListener("click", () => {
+    if (els.emptyStateAction.dataset.action === "clear-filters") {
+      resetFiltersToDefault();
+      return;
+    }
+    if (els.emptyStateAction.dataset.action === "open-archive") {
+      state.archiveOpen = true;
+      renderArchiveSection();
+      updateEmptyState(0);
+    }
   });
 
   els.archiveToggle.addEventListener("click", () => toggleArchive());

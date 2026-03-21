@@ -116,14 +116,14 @@ class CollectProjectTests(unittest.TestCase):
                 "work": True,
                 "archived": True,
                 "project_state": "blocked",
-                "project_type": "client",
+                "project_type": "work",
                 "pinned": True,
             }
         )
         self.assertTrue(result["work"])
         self.assertTrue(result["archived"])
         self.assertEqual(result["project_state"], "blocked")
-        self.assertEqual(result["project_type"], "client")
+        self.assertEqual(result["project_type"], "work")
         self.assertTrue(result["pinned"])
         self.assertFalse(result["exists"])
         self.assertEqual(result["status"], "missing_path")
