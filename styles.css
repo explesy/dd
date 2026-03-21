@@ -728,6 +728,12 @@ header h1 {
   margin-bottom: 8px;
 }
 
+.card-note-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .card-note-label {
   font-size: 0.66rem;
   font-weight: 700;

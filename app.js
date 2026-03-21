@@ -52,6 +52,7 @@ const TRANSLATIONS = {
     noteHint: "[ ] todo  [x] done  - bullet  · Cmd/Ctrl+Enter=save  Esc=cancel",
     noteSaved: "Saved",
     noteEditAction: "Edit",
+    noteAddTodoAction: "+ Todo",
     noteSaveAction: "Save",
     noteCancelAction: "Cancel",
     copySuccess: ({ path }) => `Copied: ${path}`,
@@ -163,6 +164,7 @@ const TRANSLATIONS = {
     noteHint: "[ ] todo  [x] done  - пункт  · Cmd/Ctrl+Enter=сохранить  Esc=отмена",
     noteSaved: "Сохранено",
     noteEditAction: "Изменить",
+    noteAddTodoAction: "+ Todo",
     noteSaveAction: "Сохранить",
     noteCancelAction: "Отмена",
     copySuccess: ({ path }) => `Скопировано: ${path}`,
@@ -964,6 +966,11 @@ function autosizeTextarea(textarea) {
   textarea.style.height = `${Math.max(textarea.scrollHeight, 80)}px`;
 }
 
+function appendTodoLine(raw) {
+  const prefix = raw.trim() ? `${raw.replace(/\s*$/, "")}\n` : "";
+  return `${prefix}[ ] `;
+}
+
 function buildNoteWidget(project) {
   const wrapper = document.createElement("div");
   wrapper.className = "card-note";
@@ -980,21 +987,31 @@ function buildNoteWidget(project) {
   editButton.className = "card-note-edit-btn";
   editButton.textContent = t("noteEditAction");
 
+  const todoButton = document.createElement("button");
+  todoButton.type = "button";
+  todoButton.className = "card-note-edit-btn";
+  todoButton.textContent = t("noteAddTodoAction");
+
   header.appendChild(label);
-  header.appendChild(editButton);
+
+  const headerActions = document.createElement("div");
+  headerActions.className = "card-note-header-actions";
+  headerActions.appendChild(todoButton);
+  headerActions.appendChild(editButton);
+  header.appendChild(headerActions);
 
   const rendered = document.createElement("div");
   rendered.className = "note-rendered";
   renderNoteContent(rendered, project);
 
-  const startEditing = (event) => {
+  const startEditing = (event, options = {}) => {
     event.stopPropagation();
     if (wrapper.classList.contains("editing")) return;
     wrapper.classList.add("editing");
 
     const textarea = document.createElement("textarea");
     textarea.className = "note-textarea";
-    textarea.value = resolveNote(project);
+    textarea.value = options.prefill ?? resolveNote(project);
 
     const hint = document.createElement("div");
     hint.className = "note-hint";
@@ -1068,6 +1085,7 @@ function buildNoteWidget(project) {
   };
 
   editButton.addEventListener("click", startEditing);
+  todoButton.addEventListener("click", (event) => startEditing(event, { prefill: appendTodoLine(resolveNote(project)) }));
   rendered.addEventListener("click", startEditing);
 
   wrapper.appendChild(header);
