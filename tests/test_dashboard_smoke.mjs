@@ -114,11 +114,12 @@ async function getFreePort() {
   });
 }
 
-async function startServer(workspace) {
+async function startServer(workspace, env = {}) {
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const server = spawn("python3", ["serve.py", "--port", String(port), "--bind", "127.0.0.1"], {
     cwd: workspace,
+    env: { ...process.env, ...env },
     stdio: "ignore",
   });
   await waitForServer(baseUrl);
@@ -167,8 +168,12 @@ test("page serves split assets and normalized data contract with empty config", 
     assert.match(html, /app\.js/);
     assert.match(html, /favicon\.svg/);
     assert.match(html, /favicon\.png/);
+    assert.doesNotMatch(html, /attentionSection/);
+    assert.doesNotMatch(html, /attentionGrid/);
     assert.match(html, /data-locale="en"/);
     assert.match(html, /data-locale="ru"/);
+    assert.doesNotMatch(html, /All projects/);
+    assert.doesNotMatch(html, /Full inventory with filters and search\./);
 
     const data = await dataResponse.json();
     assert.ok(Array.isArray(data.projects));
@@ -218,8 +223,12 @@ test("app.js keeps global event binding out of render and preserves locale helpe
   assert.ok(bindBody.includes("addEventListener"), "bindStaticEvents() should register listeners");
   assert.ok(!source.includes("project.exists !== false"), "missing projects should not be filtered out");
   assert.ok(source.includes('fetch("/refresh"'), "soft reload should call the refresh endpoint");
+  assert.ok(source.includes('fetch("/open-roadmap"'), "roadmap opening should go through the local server");
   assert.ok(source.includes('const LOCALE_KEY = "dd:locale";'));
   assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
+  assert.ok(source.includes("function getAttentionScore(project)"));
+  assert.ok(source.includes("project.project_state"));
+  assert.ok(source.includes("project.next_action"));
 
   const helperFactory = new Function(
     `const SUPPORTED_LOCALES = ["en", "ru"];
@@ -239,4 +248,64 @@ return { detectBrowserLocale, resolveLocalePreference };`,
   assert.ok(source.includes('headerSubtitle: "Дашборд дашбордов"'));
   assert.ok(source.includes('loadDataError: ({ message }) => `Could not load data.json: ${message}`'));
   assert.ok(source.includes('loadDataError: ({ message }) => `Не удалось загрузить data.json: ${message}`'));
+});
+
+test("server opens roadmap paths through a local endpoint", async () => {
+  const workspace = await createWorkspace({
+    projects: JSON.stringify(
+      [
+        {
+          id: "roadmap-test",
+          description: "Roadmap opener",
+          tech: ["Docs"],
+          path: ".",
+          roadmap: { file: "ROADMAP.md", section: null, mode: "next_steps" },
+        },
+      ],
+      null,
+      2,
+    ),
+  });
+
+  const openerDir = await mkdtemp(path.join(os.tmpdir(), "dd-opener-"));
+  const openerLog = path.join(openerDir, "opener.log");
+  const openerScript = `#!/bin/sh\nprintf '%s\\n' \"$1\" >> \"${openerLog}\"\n`;
+  await writeFile(path.join(openerDir, "open"), openerScript, { mode: 0o755 });
+  await writeFile(path.join(openerDir, "xdg-open"), openerScript, { mode: 0o755 });
+  await writeFile(path.join(workspace, "ROADMAP.md"), "- item\n");
+
+  let server;
+  try {
+    const started = await startServer(workspace, {
+      PATH: `${openerDir}${path.delimiter}${process.env.PATH || ""}`,
+    });
+    server = started.server;
+
+    const openResponse = await fetch(`${started.baseUrl}/open-roadmap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: path.join(workspace, "ROADMAP.md") }),
+    });
+
+    assert.equal(openResponse.status, 200);
+    const payload = await openResponse.json();
+    assert.equal(payload.ok, true);
+
+    let loggedPath = "";
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        loggedPath = (await readFile(openerLog, "utf8")).trim();
+        if (loggedPath) break;
+      } catch {
+        // opener can complete shortly after the HTTP response
+      }
+      await delay(50);
+    }
+
+    assert.equal(loggedPath, path.join(workspace, "ROADMAP.md"));
+  } finally {
+    await stopServer(server);
+    await rm(workspace, { recursive: true, force: true });
+    await rm(openerDir, { recursive: true, force: true });
+  }
 });

@@ -9,7 +9,7 @@ DD collects git status, roadmap progress, and per-project notes, then renders ev
 - Local-only by design
 - No build step
 - No remote sync or multi-user mode
-- Roadmap files can be opened via the local filesystem (`file://`)
+- Roadmap files are opened by the local DD server on your machine
 
 ## Quick Start
 
@@ -48,6 +48,10 @@ Example project entry:
   "tech": ["Python", "FastAPI"],
   "path": "/absolute/path/to/project",
   "work": true,
+  "project_state": "active",
+  "project_type": "client",
+  "pinned": false,
+  "next_action": "Ship the auth refresh",
   "archived": false,
   "roadmap": {
     "file": "ROADMAP.md",
@@ -65,21 +69,32 @@ Supported roadmap modes:
 
 `notes.json` is optional. If you want a tracked local seed file for notes, copy `notes.example.json` to `notes.json`. Browser edits still live in `localStorage`.
 
+Optional project fields:
+
+- `project_state`: `active`, `paused`, `blocked`, `waiting`, or `maintenance`
+- `project_type`: freeform category such as `client`, `job`, `personal`, `infra`, `experiment`
+- `pinned`: keeps a project near the top even when git activity is quiet
+- `next_action`: short visible one-line task shown on the card
+- `stale_days`: custom stale threshold for that project
+
 ## Features
 
 - Git overview: branch, upstream status, ahead/behind, stash count, working tree changes, recent commits
 - Roadmap parsing: progress bar plus up to five pending items
 - Notes: inline editable notes with checkbox support
+- Manual project framing: state, type, pinning, and a visible next action
+- Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
 - Filters: status filters, top tech tags, text search, archive section
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
+- Local desktop handoff: `POST /open-roadmap` opens the roadmap file in the default app
 
 ## Files
 
 - `projects.example.json`: tracked example config
 - `notes.example.json`: tracked example notes seed
 - `refresh.py`: collector that produces `data.json`
-- `serve.py`: local server with `POST /refresh`
+- `serve.py`: local server with `POST /refresh` and `POST /open-roadmap`
 - `index.html`, `styles.css`, `app.js`: static UI
 - `tests/`: collector and smoke tests
 
@@ -194,5 +209,5 @@ Ask me before writing anything. Show the full proposed projects.json first.
 - If `projects.json` is missing, copy `projects.example.json` to `projects.json` and add your local project paths.
 - If you want a seed notes file, copy `notes.example.json` to `notes.json`; otherwise you can skip it.
 - If refresh does not work from the page, make sure the dashboard is running through `serve.py`, not a generic static server.
+- If roadmap opening does not work, make sure the dashboard is running through `serve.py` and that the configured roadmap path points to a real local file.
 - If the favicon does not update immediately, force-refresh the tab because browsers cache favicons aggressively.
-- If a roadmap button opens nothing, confirm your browser allows opening local `file://` URLs from a local page.

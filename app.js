@@ -36,16 +36,34 @@ const TRANSLATIONS = {
     archiveClosed: ({ count }) => `▸ Archive (${count})`,
     archiveOpen: ({ count }) => `▾ Archive (${count})`,
     noScript: "This dashboard requires JavaScript.",
+    notesSectionLabel: "Notes",
     notePlaceholder: "add a note…",
     noteHint: "[ ] todo  [x] done  - bullet  · Enter=save  Shift+Enter=new line  Esc=cancel",
     noteSaved: "Saved",
     copySuccess: ({ path }) => `Copied: ${path}`,
     copyFailure: "Could not copy path",
     roadmapUnavailable: "Roadmap file is unavailable",
+    roadmapOpenFailure: ({ message }) => `Could not open roadmap: ${message}`,
     copyPath: "Copy path",
     openRoadmap: "Open roadmap",
     workBadge: "work",
     archivedBadge: "archived",
+    pinnedBadge: "pinned",
+    states: {
+      active: "active",
+      paused: "paused",
+      blocked: "blocked",
+      waiting: "waiting",
+      maintenance: "maintenance",
+    },
+    types: {
+      client: "client",
+      job: "job",
+      personal: "personal",
+      infra: "infra",
+      experiment: "experiment",
+      work: "work",
+    },
     recentCommits: "Recent commits",
     otherBranches: "Other branches",
     pathNotFound: "Path not found",
@@ -60,6 +78,19 @@ const TRANSLATIONS = {
     roadmapUnsupportedMode: "roadmap: unsupported mode",
     roadmapEmpty: "roadmap: empty",
     roadmapPendingCount: ({ count }) => `roadmap: ${count} pending`,
+    roadmapMore: ({ count }) => `+${count} more`,
+    nextActionLabel: "Next",
+    noNextAction: "No next action set",
+    primaryBlocked: "Blocked",
+    primaryWaiting: "Waiting",
+    primaryPaused: "Paused",
+    primaryMaintenance: "Maintenance",
+    primaryBehind: ({ count }) => `${count} commit${count === 1 ? "" : "s"} behind`,
+    primaryPending: ({ count }) => `${count} roadmap task${count === 1 ? "" : "s"} pending`,
+    primaryChanges: ({ count }) => `${count} local change${count === 1 ? "" : "s"}`,
+    primaryStale: ({ count }) => `No commits for ${count}d`,
+    primaryNoUpstream: "Branch has no upstream",
+    primaryHealthy: "Healthy",
     missingPathLine: "Project path not found",
     noGitLine: "Directory exists but is not a git repository",
     workingTreeClean: "Working tree is clean",
@@ -103,16 +134,34 @@ const TRANSLATIONS = {
     archiveClosed: ({ count }) => `▸ Архив (${count})`,
     archiveOpen: ({ count }) => `▾ Архив (${count})`,
     noScript: "Для дашборда нужен JavaScript.",
+    notesSectionLabel: "Заметки",
     notePlaceholder: "добавить заметку…",
     noteHint: "[ ] todo  [x] done  - пункт  · Enter=сохранить  Shift+Enter=перенос  Esc=отмена",
     noteSaved: "Сохранено",
     copySuccess: ({ path }) => `Скопировано: ${path}`,
     copyFailure: "Не удалось скопировать путь",
     roadmapUnavailable: "Файл roadmap недоступен",
+    roadmapOpenFailure: ({ message }) => `Не удалось открыть roadmap: ${message}`,
     copyPath: "Скопировать путь",
     openRoadmap: "Открыть roadmap",
     workBadge: "работа",
     archivedBadge: "архив",
+    pinnedBadge: "пин",
+    states: {
+      active: "активный",
+      paused: "пауза",
+      blocked: "блокер",
+      waiting: "ожидание",
+      maintenance: "поддержка",
+    },
+    types: {
+      client: "клиент",
+      job: "работа",
+      personal: "личный",
+      infra: "инфра",
+      experiment: "эксперимент",
+      work: "работа",
+    },
     recentCommits: "Недавние коммиты",
     otherBranches: "Другие ветки",
     pathNotFound: "Путь не найден",
@@ -127,6 +176,19 @@ const TRANSLATIONS = {
     roadmapUnsupportedMode: "roadmap: неизвестный mode",
     roadmapEmpty: "roadmap: пусто",
     roadmapPendingCount: ({ count }) => `roadmap: ${count} задач`,
+    roadmapMore: ({ count }) => `+${count} еще`,
+    nextActionLabel: "Следующее",
+    noNextAction: "Следующее действие не задано",
+    primaryBlocked: "Блокер",
+    primaryWaiting: "Ожидание",
+    primaryPaused: "На паузе",
+    primaryMaintenance: "Поддержка",
+    primaryBehind: ({ count }) => `Позади на ${count} коммит${count > 1 ? "а" : ""}`,
+    primaryPending: ({ count }) => `В roadmap ${count} задач`,
+    primaryChanges: ({ count }) => `${count} локальных изменений`,
+    primaryStale: ({ count }) => `Без коммитов ${count}д`,
+    primaryNoUpstream: "У ветки нет upstream",
+    primaryHealthy: "Нормально",
     missingPathLine: "Путь проекта не найден",
     noGitLine: "Каталог существует, но это не git-репозиторий",
     workingTreeClean: "Рабочее дерево чистое",
@@ -231,6 +293,57 @@ function isStale(project) {
 function daysAgo(project) {
   if (!project.last_commit?.date) return 99999;
   return (Date.now() - new Date(project.last_commit.date).getTime()) / 86400000;
+}
+
+function projectStateLabel(project) {
+  if (!project.project_state) return null;
+  return TRANSLATIONS[state.locale].states[project.project_state] || project.project_state;
+}
+
+function projectTypeLabel(project) {
+  const type = project.project_type;
+  if (!type) return null;
+  return TRANSLATIONS[state.locale].types[type] || type;
+}
+
+function getPrimaryStatus(project) {
+  if (project.status === "missing_path") return { label: t("missingPathLine"), kind: "danger" };
+  if (project.status === "no_git") return { label: t("noGitLine"), kind: "muted" };
+  if (project.project_state === "blocked") return { label: t("primaryBlocked"), kind: "danger" };
+  if (project.project_state === "waiting") return { label: t("primaryWaiting"), kind: "info" };
+  if (project.project_state === "paused") return { label: t("primaryPaused"), kind: "muted" };
+  if (project.project_state === "maintenance") return { label: t("primaryMaintenance"), kind: "muted" };
+  if (project.behind > 0) return { label: t("primaryBehind", { count: project.behind }), kind: "danger" };
+  if (project.roadmap?.pending?.length) {
+    return { label: t("primaryPending", { count: project.roadmap.pending.length }), kind: "warn" };
+  }
+  if (project.total_changes > 0) {
+    return { label: t("primaryChanges", { count: project.total_changes }), kind: "warn" };
+  }
+  if (isStale(project)) {
+    return { label: t("primaryStale", { count: Math.floor(daysAgo(project)) }), kind: "warn" };
+  }
+  if (project.is_git && !project.has_upstream) return { label: t("primaryNoUpstream"), kind: "info" };
+  return { label: t("primaryHealthy"), kind: "ok" };
+}
+
+function getAttentionScore(project) {
+  if (project.archived) return -1;
+
+  let score = 0;
+  if (project.pinned) score += 120;
+  if (project.project_state === "blocked") score += 100;
+  if (project.project_state === "waiting") score += 60;
+  if (project.project_state === "paused") score += 10;
+  if (project.status === "missing_path") score += 90;
+  if (project.status === "no_git") score += 50;
+  if (project.behind > 0) score += 35 + Math.min(project.behind * 3, 25);
+  if (project.total_changes > 0) score += Math.min(project.total_changes * 2, 40);
+  if (project.roadmap?.pending?.length) score += Math.min(project.roadmap.pending.length * 6, 30);
+  if (project.is_git && !project.has_upstream) score += 12;
+  if (isStale(project)) score += 18;
+  if (project.work) score += 5;
+  return score;
 }
 
 function statusColor(project) {
@@ -376,12 +489,32 @@ function clearError() {
   els.error.style.display = "none";
 }
 
-function openRoadmap(project) {
+async function openRoadmap(project) {
   if (!project.roadmap?.path) {
     toast(t("roadmapUnavailable"));
     return;
   }
-  window.open(`file://${encodeURI(project.roadmap.path)}`, "_blank", "noopener");
+
+  try {
+    const response = await fetch("/open-roadmap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ path: project.roadmap.path }),
+    });
+
+    if (!response.ok) {
+      const message = await readErrorMessage(response, `HTTP ${response.status}`);
+      throw new Error(message);
+    }
+
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || "Open roadmap failed");
+  } catch (error) {
+    toast(t("roadmapOpenFailure", { message: error?.message || "unknown error" }));
+  }
 }
 
 async function readErrorMessage(response, fallback) {
@@ -470,6 +603,15 @@ async function loadData() {
 
 function getSortedIndices() {
   const indices = state.allProjects.map((_, index) => index);
+  if (state.currentSort === "default") {
+    return indices.sort((left, right) => {
+      const scoreDiff = getAttentionScore(state.allProjects[right]) - getAttentionScore(state.allProjects[left]);
+      if (scoreDiff !== 0) return scoreDiff;
+      const dateDiff = daysAgo(state.allProjects[left]) - daysAgo(state.allProjects[right]);
+      if (dateDiff !== 0) return dateDiff;
+      return state.allProjects[left].name.localeCompare(state.allProjects[right].name);
+    });
+  }
   if (state.currentSort === "changes") {
     return indices.sort(
       (left, right) => state.allProjects[right].total_changes - state.allProjects[left].total_changes,
@@ -517,7 +659,9 @@ function applyFilters() {
     const project = state.allProjects[Number(card.dataset.idx)];
     const show = matchesFilters(project);
     card.classList.toggle("hidden", !show);
-    if (show) visible += 1;
+    if (show) {
+      visible += 1;
+    }
   });
 
   els.resultsCount.textContent =
@@ -675,12 +819,17 @@ function buildNoteWidget(project) {
   const wrapper = document.createElement("div");
   wrapper.className = "card-note";
 
+  const label = document.createElement("div");
+  label.className = "card-note-label";
+  label.textContent = t("notesSectionLabel");
+
   const rendered = document.createElement("div");
   rendered.className = "note-rendered";
   renderNoteContent(rendered, project);
 
   rendered.addEventListener("click", (event) => {
     event.stopPropagation();
+    wrapper.classList.add("editing");
 
     const textarea = document.createElement("textarea");
     textarea.className = "note-textarea";
@@ -698,6 +847,7 @@ function buildNoteWidget(project) {
 
     const commit = () => {
       saveNote(project.id, textarea.value);
+      wrapper.classList.remove("editing");
       if (wrapper.contains(textarea)) wrapper.replaceChild(rendered, textarea);
       if (wrapper.contains(hint)) hint.remove();
       renderNoteContent(rendered, project);
@@ -707,6 +857,7 @@ function buildNoteWidget(project) {
     textarea.addEventListener("keydown", (keyEvent) => {
       if (keyEvent.key === "Escape") {
         keyEvent.stopPropagation();
+        wrapper.classList.remove("editing");
         if (wrapper.contains(textarea)) wrapper.replaceChild(rendered, textarea);
         if (wrapper.contains(hint)) hint.remove();
         renderNoteContent(rendered, project);
@@ -723,6 +874,7 @@ function buildNoteWidget(project) {
     textarea.addEventListener("click", (clickEvent) => clickEvent.stopPropagation());
   });
 
+  wrapper.appendChild(label);
   wrapper.appendChild(rendered);
   return wrapper;
 }
@@ -758,9 +910,6 @@ function buildAttentionItems(project) {
 
   const roadmapLabel = roadmapIssueLabel(project);
   if (roadmapLabel) items.push({ label: roadmapLabel, kind: "danger" });
-  if (project.roadmap?.pending?.length) {
-    items.push({ label: t("roadmapPendingCount", { count: project.roadmap.pending.length }), kind: "muted" });
-  }
 
   return items;
 }
@@ -803,22 +952,7 @@ function buildStatsHtml(project) {
     html += `
       <div class="stat-commit">
         <span class="hash">${esc(project.last_commit.hash)}</span> ${esc(project.last_commit.message)}
-        <br>${esc(relativeDate(project.last_commit.date))}
-      </div>
-    `;
-  }
-
-  if (project.unpushed_stats) {
-    const stats = project.unpushed_stats;
-    html += `
-      <div class="unpushed-stats">
-        ${esc(
-          t("localCommitDiff", {
-            count: project.ahead,
-            insertions: stats.insertions,
-            deletions: stats.deletions,
-          }),
-        )}
+        <span class="stat-sep">·</span>${esc(relativeDate(project.last_commit.date))}
       </div>
     `;
   }
@@ -830,11 +964,19 @@ function buildRoadmapHtml(project) {
   if (!project.roadmap) return "";
   const roadmap = project.roadmap;
   const percent = roadmap.total > 0 ? Math.round((roadmap.done / roadmap.total) * 100) : 0;
-  const pendingHtml = roadmap.pending.length
-    ? `<ul class="pending-items">${roadmap.pending
+  const previewItems = roadmap.pending.slice(0, 1);
+  const hiddenCount = Math.max(roadmap.pending.length - previewItems.length, 0);
+  const pendingPreviewHtml = previewItems.length
+    ? `<ul class="pending-items pending-items-preview${hiddenCount ? " has-overflow" : ""}">${previewItems
         .map((item) => `<li class="pending-item">${esc(item)}</li>`)
         .join("")}</ul>`
     : "";
+  const pendingFullHtml = hiddenCount
+    ? `<ul class="pending-items pending-items-full">${roadmap.pending
+        .map((item) => `<li class="pending-item">${esc(item)}</li>`)
+        .join("")}</ul>`
+    : "";
+  const moreHtml = hiddenCount ? `<div class="roadmap-more">${esc(t("roadmapMore", { count: hiddenCount }))}</div>` : "";
 
   return `
     <div class="roadmap">
@@ -843,7 +985,9 @@ function buildRoadmapHtml(project) {
         <span class="roadmap-count">${roadmap.done}/${roadmap.total}</span>
       </div>
       <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
-      ${pendingHtml}
+      ${pendingPreviewHtml}
+      ${moreHtml}
+      ${pendingFullHtml}
     </div>
   `;
 }
@@ -904,6 +1048,33 @@ function buildActions(project) {
   return wrapper;
 }
 
+function buildProjectIdentityBadges(project, archived = false) {
+  const parts = [];
+  const typeLabel = projectTypeLabel(project);
+  const stateLabel = projectStateLabel(project);
+
+  if (typeLabel) parts.push(`<span class="card-chip type-chip">${esc(typeLabel)}</span>`);
+  if (project.work && !project.project_type) parts.push(`<span class="card-chip work-chip">${esc(t("workBadge"))}</span>`);
+  if (stateLabel) {
+    parts.push(
+      `<span class="card-chip state-chip state-chip-${esc(project.project_state)}">${esc(stateLabel)}</span>`,
+    );
+  }
+  if (project.pinned) parts.push(`<span class="card-chip pin-chip">${esc(t("pinnedBadge"))}</span>`);
+  if (archived) parts.push(`<span class="card-chip archived-badge">${esc(t("archivedBadge"))}</span>`);
+
+  return parts.join("");
+}
+
+function buildNextActionHtml(project, compact = false) {
+  if (!project.next_action) return "";
+  if (compact) {
+    return `<div class="next-action next-action-compact">${esc(project.next_action)}</div>`;
+  }
+  const label = t("nextActionLabel");
+  return `<div class="next-action"><span class="next-action-label">${esc(label)}:</span> ${esc(project.next_action)}</div>`;
+}
+
 function bindCardInteractions(card) {
   card.addEventListener("click", () => {
     const expanded = !card.classList.contains("expanded");
@@ -925,12 +1096,11 @@ function buildCard(project, index, archived = false) {
   if (project.work) card.classList.add("work");
   if (archived) card.classList.add("archived");
   card.dataset.idx = String(index);
+  card.dataset.projectId = project.id;
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   card.setAttribute("aria-expanded", "false");
-
-  const workBadge = project.work ? `<span class="work-badge">${esc(t("workBadge"))}</span>` : "";
-  const archivedBadge = archived ? `<span class="archived-badge">${esc(t("archivedBadge"))}</span>` : "";
+  const primaryStatus = getPrimaryStatus(project);
 
   let metaHtml = "";
   if (project.is_git && project.branch) {
@@ -958,24 +1128,29 @@ function buildCard(project, index, archived = false) {
     .join("");
 
   const attentionHtml = buildAttentionHtml(project);
+  const identityBadges = buildProjectIdentityBadges(project, archived);
 
   card.innerHTML = `
     <div class="card-header">
       <div class="card-title">
         <span class="card-name">${esc(project.name)}</span>
-        ${workBadge}
-        ${archivedBadge}
+        ${identityBadges}
       </div>
       ${metaHtml}
     </div>
     <div class="card-desc">${esc(project.description)}</div>
+    <div class="primary-status ${primaryStatus.kind}">${esc(primaryStatus.label)}</div>
+    ${buildNextActionHtml(project)}
     <div class="card-tech">${techTags}</div>
     <div class="attention-row">${attentionHtml}</div>
     <div>${buildStatsHtml(project)}</div>
-    ${buildRoadmapHtml(project)}
-    ${buildExpandHtml(project)}
   `;
 
+  if (project.roadmap || project.recent_commits?.length > 1 || project.other_branches?.length) {
+    const secondary = document.createElement("div");
+    secondary.innerHTML = `${buildRoadmapHtml(project)}${buildExpandHtml(project)}`;
+    while (secondary.firstChild) card.appendChild(secondary.firstChild);
+  }
   card.appendChild(buildActions(project));
   card.appendChild(buildNoteWidget(project));
 

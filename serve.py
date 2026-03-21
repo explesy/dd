@@ -9,10 +9,14 @@ Usage:
 
 import argparse
 import json
+import os
+import subprocess
+import sys
 import threading
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import refresh
 
@@ -31,6 +35,24 @@ def run_refresh() -> dict:
         raise
     LAST_REFRESH_ERROR = None
     return data
+
+
+def read_json_body(handler: SimpleHTTPRequestHandler) -> dict:
+    length = int(handler.headers.get("Content-Length", "0") or "0")
+    raw = handler.rfile.read(length) if length > 0 else b""
+    if not raw:
+        return {}
+    return json.loads(raw.decode("utf-8"))
+
+
+def open_path_in_os(target: Path) -> None:
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", str(target)])
+        return
+    if sys.platform.startswith("win"):
+        os.startfile(str(target))  # type: ignore[attr-defined]
+        return
+    subprocess.Popen(["xdg-open", str(target)])
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -61,21 +83,54 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        if self.path != "/refresh":
-            self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
+        if self.path == "/refresh":
+            with REFRESH_LOCK:
+                try:
+                    data = run_refresh()
+                except Exception as exc:  # pragma: no cover - exercised via smoke test
+                    self._send_json(
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                        {"ok": False, "error": str(exc)},
+                    )
+                    return
+
+            self._send_json(HTTPStatus.OK, {"ok": True, "data": data})
             return
 
-        with REFRESH_LOCK:
+        if self.path == "/open-roadmap":
             try:
-                data = run_refresh()
-            except Exception as exc:  # pragma: no cover - exercised via smoke test
+                payload = read_json_body(self)
+            except json.JSONDecodeError:
                 self._send_json(
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                    {"ok": False, "error": str(exc)},
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Invalid JSON body"},
                 )
                 return
 
-        self._send_json(HTTPStatus.OK, {"ok": True, "data": data})
+            target = Path(str(payload.get("path") or "")).expanduser()
+            if not target.is_file():
+                self._send_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Roadmap path does not point to an existing file"},
+                )
+                return
+
+            try:
+                open_path_in_os(target)
+            except Exception as exc:
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"ok": False, "error": f"Could not open roadmap: {exc}"},
+                )
+                return
+
+            self._send_json(HTTPStatus.OK, {"ok": True})
+            return
+
+        if self.path != "/refresh":
+            self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
+            return
+        self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
 
 
 def parse_args() -> argparse.Namespace:

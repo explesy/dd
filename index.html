@@ -29,18 +29,24 @@
   </header>
 
   <div class="filter-bar" id="filterBar">
-    <div class="filter-group" id="statusFilters">
-      <button class="filter-btn active" data-filter="all" type="button">All</button>
-      <button class="filter-btn" data-filter="work" type="button">Work</button>
-      <button class="filter-btn" data-filter="dirty" type="button">Dirty</button>
-      <button class="filter-btn" data-filter="stale" type="button">Stale</button>
-      <button class="filter-btn" data-filter="clean" type="button">Clean</button>
+    <div class="filter-lane filter-lane-controls">
+      <div class="filter-group filter-group-status" id="statusFilters">
+        <button class="filter-btn active" data-filter="all" type="button">All</button>
+        <button class="filter-btn" data-filter="work" type="button">Work</button>
+        <button class="filter-btn" data-filter="dirty" type="button">Dirty</button>
+        <button class="filter-btn" data-filter="stale" type="button">Stale</button>
+        <button class="filter-btn" data-filter="clean" type="button">Clean</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group filter-group-tech" id="techFilters"></div>
     </div>
-    <div class="filter-sep"></div>
-    <div class="filter-group" id="techFilters"></div>
-    <div class="filter-sep"></div>
-    <input class="search-input" id="searchInput" placeholder="Search by name, tech, notes…" type="search">
-    <span class="results-count" id="resultsCount"></span>
+    <div class="filter-lane filter-lane-search">
+      <label class="search-shell" for="searchInput">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input class="search-input" id="searchInput" placeholder="Search by name, tech, notes…" type="search">
+      </label>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
   </div>
 
   <div class="grid" id="grid"></div>
