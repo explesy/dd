@@ -73,6 +73,7 @@ Optional project fields:
 - `project_state`: `active`, `paused`, `blocked`, `waiting`, or `maintenance`
 - `project_type`: one of `work`, `personal`, `learn`, `infra`
 - `pinned`: keeps a project near the top even when git activity is quiet
+- `archived`: starts a project in the archive section
 - `stale_days`: custom stale threshold for that project
 
 Saved view behavior:
@@ -81,6 +82,12 @@ Saved view behavior:
 - If `project_type` is not set, `Personal` also includes projects where `"work"` is not `true`
 - `Learn` includes projects with `"project_type": "learn"`
 - `Infra` includes projects with `"project_type": "infra"`
+
+Local UI overrides:
+
+- `pinned`, `archived`, `project_state`, and `project_type` can all be changed from the dashboard UI
+- those changes are stored in browser `localStorage`
+- they do not rewrite `projects.json`
 
 ## Features
 
@@ -135,12 +142,14 @@ Then open the repository's `projects.json` and append a new entry with:
 - "tech": array of main languages and frameworks from the dependency file
 - "path": absolute path to the project
 - "work": true if it looks like a team or employer project, false otherwise
+- "project_type": "work", "personal", "learn", or "infra" if the repo clearly fits one
 - "roadmap": object if a roadmap file exists — pick the most appropriate mode:
     "checkboxes"   for files with - [ ] / - [x] items
     "next_steps"   for plain numbered or bulleted lists
     "phase_status" for headings marked with ✅ / ⬜
 
-Do not guess — only set "roadmap" if you actually found a suitable file.
+Do not guess — only set "project_type" or "roadmap" if you actually found enough evidence.
+Set "pinned" and "archived" only if I explicitly ask for them.
 Show me the final JSON entry before writing.
 ```
 
@@ -162,6 +171,7 @@ Entry fields:
   extensions if no manifest found
 - "path": absolute path
 - "work": true only if the README or package name clearly indicates a work project
+- "project_type": "work", "personal", "learn", or "infra" only when clearly implied
 - "roadmap": only if a suitable file was found (modes: checkboxes / next_steps /
   phase_status — pick based on actual file content)
 
@@ -202,7 +212,7 @@ Set up the DD dashboard in this repository for my local projects.
 2. Scan the following directories for git repos: <DIR_1>, <DIR_2>, ...
    (or ask me which directories to scan if none are listed)
 3. For each repo found, read README + dependency manifest + any roadmap-like file.
-4. Build projects.json entries (id, description, tech, path, work, roadmap).
+4. Build projects.json entries (id, description, tech, path, work, optional project_type, optional roadmap).
 5. Write the final projects.json.
 6. Run `uv run python refresh.py` from the DD repository root
    and confirm `data.json` was updated.
