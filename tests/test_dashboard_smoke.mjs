@@ -224,6 +224,7 @@ test("app.js keeps global event binding out of render and preserves locale helpe
   assert.ok(!source.includes("project.exists !== false"), "missing projects should not be filtered out");
   assert.ok(source.includes('fetch("/refresh"'), "soft reload should call the refresh endpoint");
   assert.ok(source.includes('fetch("/open-roadmap"'), "roadmap opening should go through the local server");
+  assert.ok(source.includes('runDesktopAction("/open-folder"'), "folder opening should go through the local server");
   assert.ok(source.includes('const LOCALE_KEY = "dd:locale";'));
   assert.ok(source.includes('const PROJECT_OVERRIDE_PREFIX = "dd:project:";'));
   assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
@@ -308,5 +309,68 @@ test("server opens roadmap paths through a local endpoint", async () => {
     await stopServer(server);
     await rm(workspace, { recursive: true, force: true });
     await rm(openerDir, { recursive: true, force: true });
+  }
+});
+
+test("server runs local desktop actions through endpoints", async () => {
+  const workspace = await createWorkspace({
+    projects: JSON.stringify(
+      [
+        {
+          id: "desktop-actions",
+          description: "Desktop actions",
+          tech: ["Docs"],
+          path: ".",
+        },
+      ],
+      null,
+      2,
+    ),
+  });
+
+  const helperDir = await mkdtemp(path.join(os.tmpdir(), "dd-desktop-actions-"));
+  const helperLog = path.join(helperDir, "helper.log");
+  const helperScript = `#!/bin/sh\nprintf '%s %s\\n' \"$0\" \"$*\" >> \"${helperLog}\"\n`;
+  await writeFile(path.join(helperDir, "open"), helperScript, { mode: 0o755 });
+  await writeFile(path.join(helperDir, "xdg-open"), helperScript, { mode: 0o755 });
+  await writeFile(path.join(helperDir, "code"), helperScript, { mode: 0o755 });
+
+  let server;
+  try {
+    const started = await startServer(workspace, {
+      PATH: `${helperDir}${path.delimiter}${process.env.PATH || ""}`,
+      EDITOR: "",
+      VISUAL: "",
+    });
+    server = started.server;
+
+    for (const endpoint of ["/open-folder"]) {
+      const response = await fetch(`${started.baseUrl}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: workspace }),
+      });
+      assert.equal(response.status, 200, endpoint);
+      const payload = await response.json();
+      assert.equal(payload.ok, true, endpoint);
+    }
+
+    let logText = "";
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        logText = (await readFile(helperLog, "utf8")).trim();
+        if (logText) break;
+      } catch {
+        // helper can finish shortly after the HTTP response
+      }
+      await delay(50);
+    }
+
+    assert.match(logText, /open|xdg-open/);
+    assert.match(logText, new RegExp(workspace.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  } finally {
+    await stopServer(server);
+    await rm(workspace, { recursive: true, force: true });
+    await rm(helperDir, { recursive: true, force: true });
   }
 });

@@ -273,6 +273,17 @@ header h1 {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
+.filter-group-views .filter-btn {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.filter-btn-view:not(.active) {
+  background: color-mix(in srgb, var(--tag-bg) 58%, transparent);
+  color: color-mix(in srgb, var(--text-secondary) 84%, var(--text));
+}
+
 .search-shell {
   display: flex;
   align-items: center;
@@ -725,10 +736,26 @@ header h1 {
   color: color-mix(in srgb, var(--text-secondary) 92%, var(--text));
 }
 
-.card-note-edit-hint {
-  font-size: 0.64rem;
-  color: color-mix(in srgb, var(--text-secondary) 78%, var(--text));
-  opacity: 0.7;
+.card-note-edit-btn,
+.note-edit-btn {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--tag-bg) 72%, transparent);
+  color: color-mix(in srgb, var(--text-secondary) 88%, var(--text));
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card-note-edit-btn:hover,
+.card-note-edit-btn:focus-visible,
+.note-edit-btn:hover,
+.note-edit-btn:focus-visible {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--border) 60%, var(--blue));
 }
 
 .roadmap-label {
@@ -799,6 +826,7 @@ header h1 {
 .card-actions {
   margin-top: 12px;
   align-items: center;
+  gap: 6px;
 }
 
 .card-action {
@@ -815,6 +843,38 @@ header h1 {
 .card-action:focus-visible {
   color: var(--text);
   border-color: color-mix(in srgb, var(--border) 60%, var(--blue));
+}
+
+.card-state-field {
+  display: inline-flex;
+}
+
+.card-state-select {
+  min-height: 24px;
+  padding: 3px 24px 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--tag-bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 12px) calc(50% - 1px),
+    calc(100% - 8px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.card-state-select:hover,
+.card-state-select:focus-visible {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--border) 60%, var(--blue));
+  outline: none;
 }
 
 .card-pin-toggle {
@@ -945,12 +1005,6 @@ header h1 {
   opacity: 0.85;
 }
 
-.card-note:hover .card-note-edit-hint,
-.card-note:focus-within .card-note-edit-hint {
-  opacity: 1;
-  color: color-mix(in srgb, var(--blue) 64%, var(--text));
-}
-
 .note-item.indent {
   padding-left: 14px;
 }
@@ -993,14 +1047,26 @@ header h1 {
   resize: none;
   outline: none;
   line-height: 1.6;
-  min-height: 60px;
+  min-height: 80px;
 }
 
 .note-hint {
   font-size: 0.62rem;
   color: var(--text-secondary);
   opacity: 0.45;
-  margin-top: 3px;
+  margin-top: 6px;
+}
+
+.note-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.note-edit-save {
+  color: color-mix(in srgb, var(--blue) 86%, var(--text));
+  border-color: color-mix(in srgb, var(--border) 62%, var(--blue));
+  background: color-mix(in srgb, var(--blue) 8%, var(--tag-bg));
 }
 
 .archive-toggle {

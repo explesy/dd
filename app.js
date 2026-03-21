@@ -13,6 +13,8 @@ const SORT_FOR = {
   clean: "name",
 };
 
+const SAVED_VIEWS = ["default", "pinned", "blocked", "waiting", "personal"];
+
 const TRANSLATIONS = {
   en: {
     documentTitle: "DD Project Dashboard",
@@ -31,26 +33,38 @@ const TRANSLATIONS = {
       stale: "Stale",
       clean: "Clean",
     },
+    savedViews: {
+      default: "Default",
+      pinned: "Pinned",
+      blocked: "Blocked",
+      waiting: "Waiting",
+      personal: "Personal",
+    },
     searchPlaceholder: "Search by name, tech, notes…",
     searchAriaLabel: "Search projects",
     emptyState: "No projects match the current filters.",
     archiveClosed: ({ count }) => `▸ Archive (${count})`,
     archiveOpen: ({ count }) => `▾ Archive (${count})`,
     noScript: "This dashboard requires JavaScript.",
-    prioritySaved: "Priority updated",
+    projectMetaSaved: "Project meta updated",
     notesSectionLabel: "Notes",
     notePlaceholder: "add a note…",
-    noteHint: "[ ] todo  [x] done  - bullet  · Enter=save  Shift+Enter=new line  Esc=cancel",
+    noteHint: "[ ] todo  [x] done  - bullet  · Cmd/Ctrl+Enter=save  Esc=cancel",
     noteSaved: "Saved",
-    noteEditHint: "Click to edit",
+    noteEditAction: "Edit",
+    noteSaveAction: "Save",
+    noteCancelAction: "Cancel",
     copySuccess: ({ path }) => `Copied: ${path}`,
     copyFailure: "Could not copy path",
     roadmapUnavailable: "Roadmap file is unavailable",
     roadmapOpenFailure: ({ message }) => `Could not open roadmap: ${message}`,
+    desktopActionFailure: ({ message }) => `Could not complete desktop action: ${message}`,
     copyPath: "Copy path",
+    openFolder: "Folder",
     openRoadmap: "Open roadmap",
     pinAction: "Pin",
     pinnedAction: "Pinned",
+    stateAction: "State",
     workBadge: "work",
     archivedBadge: "archived",
     states: {
@@ -130,26 +144,38 @@ const TRANSLATIONS = {
       stale: "Старые",
       clean: "Чистые",
     },
+    savedViews: {
+      default: "Все",
+      pinned: "Закрепленные",
+      blocked: "Блокеры",
+      waiting: "Ожидание",
+      personal: "Личное",
+    },
     searchPlaceholder: "Поиск по имени, стеку, заметкам…",
     searchAriaLabel: "Поиск проектов",
     emptyState: "Нет проектов под текущими фильтрами.",
     archiveClosed: ({ count }) => `▸ Архив (${count})`,
     archiveOpen: ({ count }) => `▾ Архив (${count})`,
     noScript: "Для дашборда нужен JavaScript.",
-    prioritySaved: "Приоритет обновлен",
+    projectMetaSaved: "Параметры проекта обновлены",
     notesSectionLabel: "Заметки",
     notePlaceholder: "добавить заметку…",
-    noteHint: "[ ] todo  [x] done  - пункт  · Enter=сохранить  Shift+Enter=перенос  Esc=отмена",
+    noteHint: "[ ] todo  [x] done  - пункт  · Cmd/Ctrl+Enter=сохранить  Esc=отмена",
     noteSaved: "Сохранено",
-    noteEditHint: "Нажми, чтобы редактировать",
+    noteEditAction: "Изменить",
+    noteSaveAction: "Сохранить",
+    noteCancelAction: "Отмена",
     copySuccess: ({ path }) => `Скопировано: ${path}`,
     copyFailure: "Не удалось скопировать путь",
     roadmapUnavailable: "Файл roadmap недоступен",
     roadmapOpenFailure: ({ message }) => `Не удалось открыть roadmap: ${message}`,
+    desktopActionFailure: ({ message }) => `Не удалось выполнить локальное действие: ${message}`,
     copyPath: "Скопировать путь",
+    openFolder: "Папка",
     openRoadmap: "Открыть roadmap",
     pinAction: "Закрепить",
     pinnedAction: "Закреплено",
+    stateAction: "Статус",
     workBadge: "работа",
     archivedBadge: "архив",
     states: {
@@ -218,6 +244,7 @@ const state = {
   allProjects: [],
   archivedProjects: [],
   archiveOpen: false,
+  activeView: "default",
   activeStatus: "all",
   activeTech: null,
   searchQuery: "",
@@ -245,6 +272,7 @@ function initializeElements() {
   els.localeButtons = Array.from(document.querySelectorAll("#localeToggle .locale-btn"));
   els.timestamp = document.getElementById("timestamp");
   els.reloadBtn = document.getElementById("reloadBtn");
+  els.savedViews = document.getElementById("savedViews");
   els.statusFilters = document.getElementById("statusFilters");
   els.techFilters = document.getElementById("techFilters");
   els.searchInput = document.getElementById("searchInput");
@@ -394,6 +422,10 @@ function updateLocaleButtons() {
   });
 }
 
+function savedViewLabel(view) {
+  return TRANSLATIONS[state.locale].savedViews[view] || view;
+}
+
 function toast(message) {
   els.toast.textContent = message;
   els.toast.classList.add("show");
@@ -406,12 +438,14 @@ function loadViewState() {
     const raw = localStorage.getItem(VIEW_STATE_KEY);
     if (!raw) return;
     const persisted = JSON.parse(raw);
+    state.activeView = SAVED_VIEWS.includes(persisted.activeView) ? persisted.activeView : "default";
     state.activeStatus = persisted.activeStatus || "all";
     state.activeTech = persisted.activeTech || null;
     state.searchQuery = persisted.searchQuery || "";
     state.archiveOpen = Boolean(persisted.archiveOpen);
     state.currentSort = SORT_FOR[state.activeStatus] || "default";
   } catch {
+    state.activeView = "default";
     state.activeStatus = "all";
   }
 }
@@ -420,6 +454,7 @@ function persistViewState() {
   localStorage.setItem(
     VIEW_STATE_KEY,
     JSON.stringify({
+      activeView: state.activeView,
       activeStatus: state.activeStatus,
       activeTech: state.activeTech,
       searchQuery: state.searchQuery,
@@ -467,12 +502,13 @@ function applyProjectOverrides(project) {
   return {
     ...project,
     pinned: Object.hasOwn(overrides, "pinned") ? overrides.pinned : Boolean(project.pinned),
+    project_state: Object.hasOwn(overrides, "project_state") ? overrides.project_state : (project.project_state || null),
   };
 }
 
 function hasProjectOverrides(project) {
   const overrides = loadProjectOverrides(project.id);
-  return Object.keys(overrides).some((key) => key === "pinned");
+  return Object.keys(overrides).some((key) => key === "pinned" || key === "project_state");
 }
 
 function getNote(id) {
@@ -564,6 +600,29 @@ async function openRoadmap(project) {
     if (!payload.ok) throw new Error(payload.error || "Open roadmap failed");
   } catch (error) {
     toast(t("roadmapOpenFailure", { message: error?.message || "unknown error" }));
+  }
+}
+
+async function runDesktopAction(endpoint, project) {
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ path: project.path }),
+    });
+
+    if (!response.ok) {
+      const message = await readErrorMessage(response, `HTTP ${response.status}`);
+      throw new Error(message);
+    }
+
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error || "Desktop action failed");
+  } catch (error) {
+    toast(t("desktopActionFailure", { message: error?.message || "unknown error" }));
   }
 }
 
@@ -684,7 +743,23 @@ function applySortToGrid() {
   });
 }
 
+function matchesSavedView(project) {
+  switch (state.activeView) {
+    case "pinned":
+      return Boolean(project.pinned);
+    case "blocked":
+      return project.project_state === "blocked";
+    case "waiting":
+      return project.project_state === "waiting";
+    case "personal":
+      return project.project_type === "personal" || (!project.project_type && !project.work);
+    default:
+      return true;
+  }
+}
+
 function matchesFilters(project) {
+  if (!matchesSavedView(project)) return false;
   if (state.activeStatus === "work" && !project.work) return false;
   if (state.activeStatus === "dirty" && project.total_changes === 0) return false;
   if (state.activeStatus === "clean" && (project.total_changes > 0 || !project.is_git)) return false;
@@ -725,6 +800,25 @@ const SORT_SUFFIX = {
   date:    " ↑",
   name:    " A–Z",
 };
+
+function buildSavedViews() {
+  els.savedViews.innerHTML = "";
+  SAVED_VIEWS.forEach((view) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "filter-btn filter-btn-view";
+    button.textContent = savedViewLabel(view);
+    const active = view === state.activeView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.addEventListener("click", () => {
+      state.activeView = view;
+      buildSavedViews();
+      applyFilters();
+    });
+    els.savedViews.appendChild(button);
+  });
+}
 
 function updateStatusButtons() {
   els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
@@ -865,6 +959,11 @@ function renderNoteContent(rendered, project) {
   rendered.appendChild(list);
 }
 
+function autosizeTextarea(textarea) {
+  textarea.style.height = "0px";
+  textarea.style.height = `${Math.max(textarea.scrollHeight, 80)}px`;
+}
+
 function buildNoteWidget(project) {
   const wrapper = document.createElement("div");
   wrapper.className = "card-note";
@@ -876,32 +975,51 @@ function buildNoteWidget(project) {
   label.className = "card-note-label";
   label.textContent = t("notesSectionLabel");
 
-  const editHint = document.createElement("div");
-  editHint.className = "card-note-edit-hint";
-  editHint.textContent = t("noteEditHint");
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "card-note-edit-btn";
+  editButton.textContent = t("noteEditAction");
 
   header.appendChild(label);
-  header.appendChild(editHint);
+  header.appendChild(editButton);
 
   const rendered = document.createElement("div");
   rendered.className = "note-rendered";
   renderNoteContent(rendered, project);
 
-  rendered.addEventListener("click", (event) => {
+  const startEditing = (event) => {
     event.stopPropagation();
+    if (wrapper.classList.contains("editing")) return;
     wrapper.classList.add("editing");
 
     const textarea = document.createElement("textarea");
     textarea.className = "note-textarea";
     textarea.value = resolveNote(project);
-    textarea.rows = Math.max(3, (textarea.value.match(/\n/g) || []).length + 2);
 
     const hint = document.createElement("div");
     hint.className = "note-hint";
     hint.textContent = t("noteHint");
 
+    const actions = document.createElement("div");
+    actions.className = "note-edit-actions";
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.className = "note-edit-btn note-edit-save";
+    saveButton.textContent = t("noteSaveAction");
+
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.className = "note-edit-btn note-edit-cancel";
+    cancelButton.textContent = t("noteCancelAction");
+
+    actions.appendChild(saveButton);
+    actions.appendChild(cancelButton);
+
     wrapper.replaceChild(textarea, rendered);
+    wrapper.appendChild(actions);
     wrapper.appendChild(hint);
+    autosizeTextarea(textarea);
     textarea.focus();
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
@@ -909,30 +1027,48 @@ function buildNoteWidget(project) {
       saveNote(project.id, textarea.value);
       wrapper.classList.remove("editing");
       if (wrapper.contains(textarea)) wrapper.replaceChild(rendered, textarea);
+      if (wrapper.contains(actions)) actions.remove();
       if (wrapper.contains(hint)) hint.remove();
       renderNoteContent(rendered, project);
       applyFilters();
     };
 
+    const cancel = () => {
+      wrapper.classList.remove("editing");
+      if (wrapper.contains(textarea)) wrapper.replaceChild(rendered, textarea);
+      if (wrapper.contains(actions)) actions.remove();
+      if (wrapper.contains(hint)) hint.remove();
+      renderNoteContent(rendered, project);
+    };
+
+    saveButton.addEventListener("click", (clickEvent) => {
+      clickEvent.stopPropagation();
+      commit();
+      toast(t("noteSaved"));
+    });
+
+    cancelButton.addEventListener("click", (clickEvent) => {
+      clickEvent.stopPropagation();
+      cancel();
+    });
+
+    textarea.addEventListener("input", () => autosizeTextarea(textarea));
+
     textarea.addEventListener("keydown", (keyEvent) => {
       if (keyEvent.key === "Escape") {
         keyEvent.stopPropagation();
-        wrapper.classList.remove("editing");
-        if (wrapper.contains(textarea)) wrapper.replaceChild(rendered, textarea);
-        if (wrapper.contains(hint)) hint.remove();
-        renderNoteContent(rendered, project);
-      } else if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+        cancel();
+      } else if ((keyEvent.metaKey || keyEvent.ctrlKey) && keyEvent.key === "Enter") {
         keyEvent.preventDefault();
         commit();
         toast(t("noteSaved"));
       }
     });
-
-    textarea.addEventListener("blur", () => {
-      if (wrapper.contains(textarea)) commit();
-    });
     textarea.addEventListener("click", (clickEvent) => clickEvent.stopPropagation());
-  });
+  };
+
+  editButton.addEventListener("click", startEditing);
+  rendered.addEventListener("click", startEditing);
 
   wrapper.appendChild(header);
   wrapper.appendChild(rendered);
@@ -1065,6 +1201,46 @@ function buildActions(project) {
   const wrapper = document.createElement("div");
   wrapper.className = "card-actions";
 
+  const stateField = document.createElement("label");
+  stateField.className = "card-state-field";
+
+  const stateSelect = document.createElement("select");
+  stateSelect.className = "card-state-select";
+  stateSelect.setAttribute("aria-label", t("stateAction"));
+
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = t("stateAction");
+  stateSelect.appendChild(emptyOption);
+
+  ["active", "paused", "blocked", "waiting", "maintenance"].forEach((stateKey) => {
+    const option = document.createElement("option");
+    option.value = stateKey;
+    option.textContent = projectStateLabel({ project_state: stateKey }) || stateKey;
+    option.selected = project.project_state === stateKey;
+    stateSelect.appendChild(option);
+  });
+  if (!project.project_state) emptyOption.selected = true;
+  stateSelect.addEventListener("click", (event) => event.stopPropagation());
+  stateSelect.addEventListener("change", () => {
+    updateProjectOverride(project.id, { project_state: stateSelect.value || null });
+    toast(t("projectMetaSaved"));
+    rerenderCurrentView({ focusProjectId: project.id });
+  });
+
+  stateField.appendChild(stateSelect);
+  wrapper.appendChild(stateField);
+
+  const folderButton = document.createElement("button");
+  folderButton.type = "button";
+  folderButton.className = "card-action";
+  folderButton.textContent = t("openFolder");
+  folderButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    runDesktopAction("/open-folder", project);
+  });
+  wrapper.appendChild(folderButton);
+
   const copyButton = document.createElement("button");
   copyButton.type = "button";
   copyButton.className = "card-action";
@@ -1140,7 +1316,7 @@ function buildPinControl(project) {
   pinButton.addEventListener("click", (event) => {
     event.stopPropagation();
     updateProjectOverride(project.id, { pinned: !project.pinned });
-    toast(t("prioritySaved"));
+    toast(t("projectMetaSaved"));
     rerenderCurrentView({ focusProjectId: project.id });
   });
   return pinButton;
@@ -1244,6 +1420,7 @@ function applyLocaleToStaticUi() {
   updateLocaleButtons();
   updateReloadButton();
   updateTimestamp();
+  buildSavedViews();
   updateStatusButtons();
   els.searchInput.placeholder = t("searchPlaceholder");
   els.searchInput.setAttribute("aria-label", t("searchAriaLabel"));
@@ -1261,6 +1438,7 @@ function render(data) {
   els.grid.innerHTML = "";
   state.allProjects.forEach((project, index) => els.grid.appendChild(buildCard(project, index)));
 
+  buildSavedViews();
   buildTechFilters();
   els.searchInput.value = state.searchQuery;
   renderArchiveSection();
@@ -1288,10 +1466,12 @@ function handleGlobalKeydown(event) {
   }
 
   if (event.key === "Escape") {
+    state.activeView = "default";
     state.activeStatus = "all";
     state.activeTech = null;
     state.searchQuery = "";
     state.currentSort = "default";
+    buildSavedViews();
     updateStatusButtons();
     buildTechFilters();
     els.searchInput.value = "";

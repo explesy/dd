@@ -75,6 +75,11 @@ Optional project fields:
 - `pinned`: keeps a project near the top even when git activity is quiet
 - `stale_days`: custom stale threshold for that project
 
+Saved view behavior:
+
+- `Personal` includes projects explicitly marked with `"project_type": "personal"`
+- If `project_type` is not set, `Personal` also includes projects where `"work"` is not `true`
+
 ## Features
 
 - Git overview: branch, upstream status, ahead/behind, stash count, and working tree changes
@@ -82,18 +87,18 @@ Optional project fields:
 - Notes: inline editable notes with checkbox support
 - Manual project framing: state, type, and pinning
 - Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
-- Local pinning: each card can be pinned in the UI and the preference is stored in browser localStorage
-- Filters: status filters, top tech tags, text search, archive section
+- Local project controls: each card can be pinned and given a local state override in the UI, stored in browser localStorage
+- Filters and views: saved views, status filters, top tech tags, text search, archive section
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
-- Local desktop handoff: `POST /open-roadmap` opens the roadmap file in the default app
+- Local desktop handoff: folder and roadmap actions run through local server endpoints
 
 ## Files
 
 - `projects.example.json`: tracked example config
 - `notes.example.json`: tracked example notes seed
 - `refresh.py`: collector that produces `data.json`
-- `serve.py`: local server with `POST /refresh` and `POST /open-roadmap`
+- `serve.py`: local server with `POST /refresh` plus desktop handoff endpoints
 - `index.html`, `styles.css`, `app.js`: static UI
 - `tests/`: collector and smoke tests
 

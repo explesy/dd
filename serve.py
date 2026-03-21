@@ -127,6 +127,43 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, {"ok": True})
             return
 
+        if self.path == "/open-folder":
+            try:
+                payload = read_json_body(self)
+            except json.JSONDecodeError:
+                self._send_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Invalid JSON body"},
+                )
+                return
+
+            target = Path(str(payload.get("path") or "")).expanduser()
+            if not target.exists():
+                self._send_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Target path does not exist"},
+                )
+                return
+
+            if not target.is_dir():
+                self._send_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "Target path must be a directory"},
+                )
+                return
+
+            try:
+                open_path_in_os(target)
+            except Exception as exc:
+                self._send_json(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    {"ok": False, "error": f"Could not complete desktop action: {exc}"},
+                )
+                return
+
+            self._send_json(HTTPStatus.OK, {"ok": True})
+            return
+
         if self.path != "/refresh":
             self._send_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
             return
