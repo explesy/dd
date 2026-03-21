@@ -1,6 +1,7 @@
 const NOTES_PREFIX = "dd:note:";
 const VIEW_STATE_KEY = "dd:view-state";
 const LOCALE_KEY = "dd:locale";
+const PROJECT_OVERRIDE_PREFIX = "dd:project:";
 
 const SUPPORTED_LOCALES = ["en", "ru"];
 
@@ -36,19 +37,22 @@ const TRANSLATIONS = {
     archiveClosed: ({ count }) => `▸ Archive (${count})`,
     archiveOpen: ({ count }) => `▾ Archive (${count})`,
     noScript: "This dashboard requires JavaScript.",
+    prioritySaved: "Priority updated",
     notesSectionLabel: "Notes",
     notePlaceholder: "add a note…",
     noteHint: "[ ] todo  [x] done  - bullet  · Enter=save  Shift+Enter=new line  Esc=cancel",
     noteSaved: "Saved",
+    noteEditHint: "Click to edit",
     copySuccess: ({ path }) => `Copied: ${path}`,
     copyFailure: "Could not copy path",
     roadmapUnavailable: "Roadmap file is unavailable",
     roadmapOpenFailure: ({ message }) => `Could not open roadmap: ${message}`,
     copyPath: "Copy path",
     openRoadmap: "Open roadmap",
+    pinAction: "Pin",
+    pinnedAction: "Pinned",
     workBadge: "work",
     archivedBadge: "archived",
-    pinnedBadge: "pinned",
     states: {
       active: "active",
       paused: "paused",
@@ -79,8 +83,6 @@ const TRANSLATIONS = {
     roadmapEmpty: "roadmap: empty",
     roadmapPendingCount: ({ count }) => `roadmap: ${count} pending`,
     roadmapMore: ({ count }) => `+${count} more`,
-    nextActionLabel: "Next",
-    noNextAction: "No next action set",
     primaryBlocked: "Blocked",
     primaryWaiting: "Waiting",
     primaryPaused: "Paused",
@@ -134,19 +136,22 @@ const TRANSLATIONS = {
     archiveClosed: ({ count }) => `▸ Архив (${count})`,
     archiveOpen: ({ count }) => `▾ Архив (${count})`,
     noScript: "Для дашборда нужен JavaScript.",
+    prioritySaved: "Приоритет обновлен",
     notesSectionLabel: "Заметки",
     notePlaceholder: "добавить заметку…",
     noteHint: "[ ] todo  [x] done  - пункт  · Enter=сохранить  Shift+Enter=перенос  Esc=отмена",
     noteSaved: "Сохранено",
+    noteEditHint: "Нажми, чтобы редактировать",
     copySuccess: ({ path }) => `Скопировано: ${path}`,
     copyFailure: "Не удалось скопировать путь",
     roadmapUnavailable: "Файл roadmap недоступен",
     roadmapOpenFailure: ({ message }) => `Не удалось открыть roadmap: ${message}`,
     copyPath: "Скопировать путь",
     openRoadmap: "Открыть roadmap",
+    pinAction: "Закрепить",
+    pinnedAction: "Закреплено",
     workBadge: "работа",
     archivedBadge: "архив",
-    pinnedBadge: "пин",
     states: {
       active: "активный",
       paused: "пауза",
@@ -177,8 +182,6 @@ const TRANSLATIONS = {
     roadmapEmpty: "roadmap: пусто",
     roadmapPendingCount: ({ count }) => `roadmap: ${count} задач`,
     roadmapMore: ({ count }) => `+${count} еще`,
-    nextActionLabel: "Следующее",
-    noNextAction: "Следующее действие не задано",
     primaryBlocked: "Блокер",
     primaryWaiting: "Ожидание",
     primaryPaused: "На паузе",
@@ -435,6 +438,43 @@ function persistLocalePreference() {
   localStorage.setItem(LOCALE_KEY, state.locale);
 }
 
+function projectOverrideKey(id) {
+  return PROJECT_OVERRIDE_PREFIX + id;
+}
+
+function loadProjectOverrides(id) {
+  try {
+    const raw = localStorage.getItem(projectOverrideKey(id));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistProjectOverrides(id, overrides) {
+  const normalized = Object.fromEntries(
+    Object.entries(overrides).filter(([, value]) => value !== undefined),
+  );
+  if (!Object.keys(normalized).length) {
+    localStorage.removeItem(projectOverrideKey(id));
+    return;
+  }
+  localStorage.setItem(projectOverrideKey(id), JSON.stringify(normalized));
+}
+
+function applyProjectOverrides(project) {
+  const overrides = loadProjectOverrides(project.id);
+  return {
+    ...project,
+    pinned: Object.hasOwn(overrides, "pinned") ? overrides.pinned : Boolean(project.pinned),
+  };
+}
+
+function hasProjectOverrides(project) {
+  const overrides = loadProjectOverrides(project.id);
+  return Object.keys(overrides).some((key) => key === "pinned");
+}
+
 function getNote(id) {
   const stored = localStorage.getItem(NOTES_PREFIX + id);
   return stored !== null ? stored : null;
@@ -446,6 +486,16 @@ function saveNote(id, text) {
   } else {
     localStorage.removeItem(NOTES_PREFIX + id);
   }
+}
+
+function updateProjectOverride(projectId, updates) {
+  const current = loadProjectOverrides(projectId);
+  const next = { ...current, ...updates };
+  persistProjectOverrides(projectId, next);
+}
+
+function resetProjectOverrides(projectId) {
+  localStorage.removeItem(projectOverrideKey(projectId));
 }
 
 function resolveNote(project) {
@@ -819,9 +869,19 @@ function buildNoteWidget(project) {
   const wrapper = document.createElement("div");
   wrapper.className = "card-note";
 
+  const header = document.createElement("div");
+  header.className = "card-note-header";
+
   const label = document.createElement("div");
   label.className = "card-note-label";
   label.textContent = t("notesSectionLabel");
+
+  const editHint = document.createElement("div");
+  editHint.className = "card-note-edit-hint";
+  editHint.textContent = t("noteEditHint");
+
+  header.appendChild(label);
+  header.appendChild(editHint);
 
   const rendered = document.createElement("div");
   rendered.className = "note-rendered";
@@ -874,9 +934,24 @@ function buildNoteWidget(project) {
     textarea.addEventListener("click", (clickEvent) => clickEvent.stopPropagation());
   });
 
-  wrapper.appendChild(label);
+  wrapper.appendChild(header);
   wrapper.appendChild(rendered);
   return wrapper;
+}
+
+function rerenderCurrentView(options = {}) {
+  if (!state.latestData) return;
+  const { focusProjectId = null } = options;
+  render(state.latestData);
+
+  if (focusProjectId) {
+    const target = els.grid.querySelector(`.card[data-project-id="${focusProjectId}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add("flash-focus");
+      setTimeout(() => target.classList.remove("flash-focus"), 1200);
+    }
+  }
 }
 
 function roadmapIssueLabel(project) {
@@ -971,11 +1046,6 @@ function buildRoadmapHtml(project) {
         .map((item) => `<li class="pending-item">${esc(item)}</li>`)
         .join("")}</ul>`
     : "";
-  const pendingFullHtml = hiddenCount
-    ? `<ul class="pending-items pending-items-full">${roadmap.pending
-        .map((item) => `<li class="pending-item">${esc(item)}</li>`)
-        .join("")}</ul>`
-    : "";
   const moreHtml = hiddenCount ? `<div class="roadmap-more">${esc(t("roadmapMore", { count: hiddenCount }))}</div>` : "";
 
   return `
@@ -987,36 +1057,8 @@ function buildRoadmapHtml(project) {
       <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
       ${pendingPreviewHtml}
       ${moreHtml}
-      ${pendingFullHtml}
     </div>
   `;
-}
-
-function buildExpandHtml(project) {
-  let html = "";
-
-  if (project.recent_commits?.length > 1) {
-    const lines = project.recent_commits
-      .slice(1)
-      .map(
-        (commit) =>
-          `<div class="commit-line"><span class="hash">${esc(commit.hash)}</span> ${esc(commit.message)}</div>`,
-      )
-      .join("");
-    html += `<div class="expand-label">${esc(t("recentCommits"))}</div>${lines}`;
-  }
-
-  if (project.other_branches?.length) {
-    const branches = project.other_branches
-      .map((branch) => `<span class="branch-chip">${esc(branch)}</span>`)
-      .join("");
-    html += `
-      <div class="expand-label" style="margin-top:8px">${esc(t("otherBranches"))}</div>
-      <div class="branch-list">${branches}</div>
-    `;
-  }
-
-  return html ? `<div class="expand-section">${html}</div>` : "";
 }
 
 function buildActions(project) {
@@ -1060,34 +1102,48 @@ function buildProjectIdentityBadges(project, archived = false) {
       `<span class="card-chip state-chip state-chip-${esc(project.project_state)}">${esc(stateLabel)}</span>`,
     );
   }
-  if (project.pinned) parts.push(`<span class="card-chip pin-chip">${esc(t("pinnedBadge"))}</span>`);
   if (archived) parts.push(`<span class="card-chip archived-badge">${esc(t("archivedBadge"))}</span>`);
 
   return parts.join("");
 }
 
-function buildNextActionHtml(project, compact = false) {
-  if (!project.next_action) return "";
-  if (compact) {
-    return `<div class="next-action next-action-compact">${esc(project.next_action)}</div>`;
-  }
-  const label = t("nextActionLabel");
-  return `<div class="next-action"><span class="next-action-label">${esc(label)}:</span> ${esc(project.next_action)}</div>`;
-}
-
-function bindCardInteractions(card) {
-  card.addEventListener("click", () => {
-    const expanded = !card.classList.contains("expanded");
-    card.classList.toggle("expanded", expanded);
-    card.setAttribute("aria-expanded", String(expanded));
+function buildPinControl(project) {
+  const pinButton = document.createElement("button");
+  pinButton.type = "button";
+  pinButton.className = `card-pin-toggle${project.pinned ? " active" : ""}`;
+  pinButton.setAttribute("aria-pressed", String(Boolean(project.pinned)));
+  pinButton.setAttribute("aria-label", project.pinned ? t("pinnedAction") : t("pinAction"));
+  pinButton.title = project.pinned ? t("pinnedAction") : t("pinAction");
+  pinButton.innerHTML = `
+    <svg class="card-pin-icon" aria-hidden="true" viewBox="0 0 16 16" fill="none">
+      <path
+        class="card-pin-outline"
+        d="M8 1.9l1.8 3.65 4.03.59-2.91 2.83.69 4-3.61-1.9-3.6 1.9.68-4-2.9-2.83 4-.59L8 1.9Z"
+        stroke="currentColor"
+        stroke-width="1.15"
+        stroke-linejoin="round"
+      />
+      <path
+        class="card-pin-fill"
+        d="M8 2.75 9.45 5.7l3.26.47-2.36 2.3.56 3.25L8 10.18l-2.91 1.54.56-3.25-2.36-2.3 3.26-.47L8 2.75Z"
+        fill="currentColor"
+      />
+      <path
+        class="card-pin-spark"
+        d="M11.75 2.2h1.55M12.53 1.43v1.55"
+        stroke="currentColor"
+        stroke-width="1.1"
+        stroke-linecap="round"
+      />
+    </svg>
+  `;
+  pinButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    updateProjectOverride(project.id, { pinned: !project.pinned });
+    toast(t("prioritySaved"));
+    rerenderCurrentView({ focusProjectId: project.id });
   });
-
-  card.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    if (event.target.closest("button, textarea, input")) return;
-    event.preventDefault();
-    card.click();
-  });
+  return pinButton;
 }
 
 function buildCard(project, index, archived = false) {
@@ -1097,9 +1153,6 @@ function buildCard(project, index, archived = false) {
   if (archived) card.classList.add("archived");
   card.dataset.idx = String(index);
   card.dataset.projectId = project.id;
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
-  card.setAttribute("aria-expanded", "false");
   const primaryStatus = getPrimaryStatus(project);
 
   let metaHtml = "";
@@ -1108,9 +1161,6 @@ function buildCard(project, index, archived = false) {
     if (project.has_upstream) {
       if (project.ahead > 0) pills += `<span class="meta-pill ahead-pill">↑${project.ahead}</span>`;
       if (project.behind > 0) pills += `<span class="meta-pill behind-pill">↓${project.behind}</span>`;
-    }
-    if (project.other_branches?.length) {
-      pills += `<span class="meta-pill branch-pill">⎇ ${project.other_branches.length}</span>`;
     }
     if (project.stash_count > 0) {
       pills += `<span class="meta-pill status-pill warn">📦 ${project.stash_count}</span>`;
@@ -1129,6 +1179,7 @@ function buildCard(project, index, archived = false) {
 
   const attentionHtml = buildAttentionHtml(project);
   const identityBadges = buildProjectIdentityBadges(project, archived);
+  const pinControl = buildPinControl(project).outerHTML;
 
   card.innerHTML = `
     <div class="card-header">
@@ -1136,19 +1187,21 @@ function buildCard(project, index, archived = false) {
         <span class="card-name">${esc(project.name)}</span>
         ${identityBadges}
       </div>
-      ${metaHtml}
+      <div class="card-header-side">
+        ${metaHtml}
+        ${pinControl}
+      </div>
     </div>
     <div class="card-desc">${esc(project.description)}</div>
     <div class="primary-status ${primaryStatus.kind}">${esc(primaryStatus.label)}</div>
-    ${buildNextActionHtml(project)}
     <div class="card-tech">${techTags}</div>
     <div class="attention-row">${attentionHtml}</div>
     <div>${buildStatsHtml(project)}</div>
   `;
 
-  if (project.roadmap || project.recent_commits?.length > 1 || project.other_branches?.length) {
+  if (project.roadmap) {
     const secondary = document.createElement("div");
-    secondary.innerHTML = `${buildRoadmapHtml(project)}${buildExpandHtml(project)}`;
+    secondary.innerHTML = buildRoadmapHtml(project);
     while (secondary.firstChild) card.appendChild(secondary.firstChild);
   }
   card.appendChild(buildActions(project));
@@ -1164,7 +1217,9 @@ function buildCard(project, index, archived = false) {
     });
   });
 
-  bindCardInteractions(card);
+  const renderedPinControl = card.querySelector(".card-pin-toggle");
+  if (renderedPinControl) renderedPinControl.replaceWith(buildPinControl(project));
+
   return card;
 }
 
@@ -1199,8 +1254,8 @@ function applyLocaleToStaticUi() {
 function render(data) {
   state.latestData = data;
   state.generatedAt = data.generated_at || null;
-  state.allProjects = data.projects.filter((project) => !project.archived);
-  state.archivedProjects = data.projects.filter((project) => project.archived);
+  state.allProjects = data.projects.filter((project) => !project.archived).map(applyProjectOverrides);
+  state.archivedProjects = data.projects.filter((project) => project.archived).map(applyProjectOverrides);
 
   applyLocaleToStaticUi();
   els.grid.innerHTML = "";
@@ -1255,7 +1310,7 @@ function bindStaticEvents() {
       state.locale = button.dataset.locale;
       persistLocalePreference();
       if (state.latestData) {
-        render(state.latestData);
+        rerenderCurrentView();
       } else {
         applyLocaleToStaticUi();
       }

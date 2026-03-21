@@ -118,7 +118,6 @@ class CollectProjectTests(unittest.TestCase):
                 "project_state": "blocked",
                 "project_type": "client",
                 "pinned": True,
-                "next_action": "Ship it",
             }
         )
         self.assertTrue(result["work"])
@@ -126,7 +125,6 @@ class CollectProjectTests(unittest.TestCase):
         self.assertEqual(result["project_state"], "blocked")
         self.assertEqual(result["project_type"], "client")
         self.assertTrue(result["pinned"])
-        self.assertEqual(result["next_action"], "Ship it")
         self.assertFalse(result["exists"])
         self.assertEqual(result["status"], "missing_path")
         self.assertIn("Project path not found", result["error"])
@@ -150,7 +148,6 @@ class CollectProjectTests(unittest.TestCase):
         self.assertIsNone(result["project_state"])
         self.assertIsNone(result["project_type"])
         self.assertFalse(result["pinned"])
-        self.assertIsNone(result["next_action"])
 
 
 if __name__ == "__main__":

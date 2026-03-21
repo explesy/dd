@@ -225,10 +225,11 @@ test("app.js keeps global event binding out of render and preserves locale helpe
   assert.ok(source.includes('fetch("/refresh"'), "soft reload should call the refresh endpoint");
   assert.ok(source.includes('fetch("/open-roadmap"'), "roadmap opening should go through the local server");
   assert.ok(source.includes('const LOCALE_KEY = "dd:locale";'));
+  assert.ok(source.includes('const PROJECT_OVERRIDE_PREFIX = "dd:project:";'));
   assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
+  assert.ok(source.includes("function applyProjectOverrides(project)"));
   assert.ok(source.includes("function getAttentionScore(project)"));
   assert.ok(source.includes("project.project_state"));
-  assert.ok(source.includes("project.next_action"));
 
   const helperFactory = new Function(
     `const SUPPORTED_LOCALES = ["en", "ru"];

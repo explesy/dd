@@ -254,7 +254,6 @@ def collect_project(proj: dict) -> dict:
         "project_state": proj.get("project_state"),
         "project_type": proj.get("project_type"),
         "pinned": bool(proj.get("pinned", False)),
-        "next_action": proj.get("next_action"),
         "stale_days": int(proj.get("stale_days", 30)),
         "exists": p.exists(),
         "status": "ok",

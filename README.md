@@ -51,7 +51,6 @@ Example project entry:
   "project_state": "active",
   "project_type": "client",
   "pinned": false,
-  "next_action": "Ship the auth refresh",
   "archived": false,
   "roadmap": {
     "file": "ROADMAP.md",
@@ -74,16 +73,16 @@ Optional project fields:
 - `project_state`: `active`, `paused`, `blocked`, `waiting`, or `maintenance`
 - `project_type`: freeform category such as `client`, `job`, `personal`, `infra`, `experiment`
 - `pinned`: keeps a project near the top even when git activity is quiet
-- `next_action`: short visible one-line task shown on the card
 - `stale_days`: custom stale threshold for that project
 
 ## Features
 
-- Git overview: branch, upstream status, ahead/behind, stash count, working tree changes, recent commits
-- Roadmap parsing: progress bar plus up to five pending items
+- Git overview: branch, upstream status, ahead/behind, stash count, and working tree changes
+- Roadmap parsing: progress bar plus a compact pending preview
 - Notes: inline editable notes with checkbox support
-- Manual project framing: state, type, pinning, and a visible next action
+- Manual project framing: state, type, and pinning
 - Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
+- Local pinning: each card can be pinned in the UI and the preference is stored in browser localStorage
 - Filters: status filters, top tech tags, text search, archive section
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
