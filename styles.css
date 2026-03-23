@@ -156,6 +156,28 @@ header h1 {
   border-color: transparent;
 }
 
+.btn-header-toggle {
+  min-height: 36px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  border-color: var(--border);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.btn-header-toggle.active {
+  color: var(--filter-active-text);
+  background: var(--filter-active-bg);
+  border-color: var(--filter-active-bg);
+}
+
+.btn-header-toggle.active:hover,
+.btn-header-toggle.active:focus-visible {
+  color: var(--filter-active-text);
+}
+
 .locale-toggle {
   display: inline-flex;
   align-items: center;
@@ -746,12 +768,8 @@ header h1 {
 
 .expand-section,
 .roadmap {
-  margin-top: 9px;
-  padding-top: 9px;
-}
-
-.expand-section,
-.roadmap {
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
 }
 
@@ -808,43 +826,67 @@ header h1 {
   border-color: color-mix(in srgb, var(--border) 60%, var(--blue));
 }
 
-.roadmap-label {
+.caret-summary {
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-secondary) 92%, var(--text));
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.caret-summary:hover,
+.caret-summary:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.caret-summary-icon {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.caret-summary-icon.open {
+  transform: rotate(90deg);
+}
+
+.caret-summary-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roadmap-toggle {
+  justify-content: space-between;
+}
+
+.roadmap-summary-label {
   font-size: 0.67rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-}
-
-.roadmap-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 5px;
 }
 
 .roadmap-count {
+  margin-left: auto;
   font-size: 0.7rem;
   color: var(--text-secondary);
 }
 
-.progress-bar {
-  height: 4px;
-  background: var(--progress-bg);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--green);
+.roadmap .pending-items {
+  margin-top: 6px;
 }
 
 .roadmap-more {
-  margin-top: 6px;
-  font-size: 0.68rem;
+  margin-top: 4px;
+  font-size: 0.67rem;
   color: var(--text-secondary);
 }
 
@@ -1098,6 +1140,12 @@ header h1 {
   opacity: 0.85;
 }
 
+.note-all-done {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--text-secondary) 84%, var(--text));
+  font-style: italic;
+}
+
 .note-item.indent {
   padding-left: 14px;
 }
@@ -1114,6 +1162,21 @@ header h1 {
 .note-item.checked .note-item-label {
   text-decoration: line-through;
   opacity: 0.5;
+}
+
+.note-done {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 86%, transparent);
+}
+
+.note-done-toggle {
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.note-done .note-list {
+  margin-top: 5px;
 }
 
 .note-item-bullet {
@@ -1289,6 +1352,7 @@ header h1 {
   }
 
   .locale-toggle,
+  .btn-header-toggle,
   .header-data {
     width: 100%;
   }

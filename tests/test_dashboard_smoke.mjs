@@ -226,14 +226,26 @@ test("app.js keeps global event binding out of render and preserves locale helpe
   assert.ok(source.includes('fetch("/open-roadmap"'), "roadmap opening should go through the local server");
   assert.ok(source.includes('runDesktopAction("/open-folder"'), "folder opening should go through the local server");
   assert.ok(source.includes('const LOCALE_KEY = "dd:locale";'));
+  assert.ok(source.includes('const SHOW_GIT_INFO_KEY = "dd:show-git-info";'));
   assert.ok(source.includes('const PROJECT_OVERRIDE_PREFIX = "dd:project:";'));
   assert.ok(source.includes('localStorage.setItem(LOCALE_KEY, state.locale);'));
+  assert.ok(source.includes('localStorage.setItem(SHOW_GIT_INFO_KEY, String(Boolean(state.showGitInfo)));'));
   assert.ok(source.includes("function applyProjectOverrides(project)"));
+  assert.ok(source.includes("function normalizeNoteItems(raw)"));
+  assert.ok(source.includes("function normalizeNoteValue(raw)"));
+  assert.ok(source.includes("function buildCaretSummary("));
+  assert.ok(source.includes("function renderRoadmapContent(wrapper, project)"));
+  assert.ok(source.includes("function buildRoadmapSection(project)"));
   assert.ok(source.includes("function buildSearchHaystack(project)"));
   assert.ok(source.includes("function getAttentionScore(project)"));
   assert.ok(source.includes('archived: Object.hasOwn(overrides, "archived")'));
   assert.ok(source.includes("project.project_state"));
   assert.ok(source.includes("project.roadmap?.pending?.join"));
+  assert.ok(source.includes("if (!state.showGitInfo) return \"\";"));
+  assert.ok(source.includes("state.showGitInfo ? buildAttentionHtml(project) : \"\""));
+  assert.ok(source.includes("roadmapOpen: {},"));
+  assert.ok(source.includes("state.roadmapOpen = {};"));
+  assert.ok(!source.includes("localStorage.setItem(ROADMAP"), "roadmap collapse state should not persist");
 
   const helperFactory = new Function(
     `const SUPPORTED_LOCALES = ["en", "ru"];
@@ -248,6 +260,28 @@ return { detectBrowserLocale, resolveLocalePreference };`,
   assert.equal(resolveLocalePreference("ru", "en-US"), "ru");
   assert.equal(resolveLocalePreference(null, "ru-RU"), "ru");
   assert.equal(resolveLocalePreference("de", "en-US"), "en");
+
+  const noteHelperFactory = new Function(
+    `${extractFunctionSource(source, "normalizeNoteItems")}
+${extractFunctionSource(source, "serializeNoteItems")}
+${extractFunctionSource(source, "normalizeNoteValue")}
+return { normalizeNoteItems, serializeNoteItems, normalizeNoteValue };`,
+  );
+  const { normalizeNoteItems, serializeNoteItems, normalizeNoteValue } = noteHelperFactory();
+
+  assert.deepEqual(normalizeNoteItems("plain line\n- bullet\n[x] done"), [
+    { checked: false, label: "plain line" },
+    { checked: false, label: "bullet" },
+    { checked: true, label: "done" },
+  ]);
+  assert.equal(
+    serializeNoteItems([
+      { checked: true, label: "done" },
+      { checked: false, label: "todo" },
+    ]),
+    "[ ] todo\n[x] done",
+  );
+  assert.equal(normalizeNoteValue("alpha\n[x] beta\n- gamma"), "[ ] alpha\n[ ] gamma\n[x] beta");
 
   assert.ok(source.includes('headerSubtitle: "Dashboard of Dashboards"'));
   assert.ok(source.includes('headerSubtitle: "Дашборд дашбордов"'));

@@ -93,10 +93,11 @@ Local UI overrides:
 
 - Git overview: branch, upstream status, ahead/behind, stash count, and working tree changes
 - Roadmap parsing: progress bar plus a compact pending preview
-- Notes: inline editable notes with checkbox support
+- Notes: checklist-only notes with inline editing and a separate `Done` archive inside each card
 - Manual project framing: state, type, and pinning
 - Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
 - Local project controls: each card can be pinned, moved into/out of archive, and given local state/type overrides in the UI, stored in browser localStorage
+- Global display controls: header-level `Git` toggle hides or shows git-derived card information and is stored in browser localStorage
 - Filters and views: saved views, status filters, top tech tags, text search, archive section
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut

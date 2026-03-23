@@ -1,6 +1,7 @@
 const NOTES_PREFIX = "dd:note:";
 const VIEW_STATE_KEY = "dd:view-state";
 const LOCALE_KEY = "dd:locale";
+const SHOW_GIT_INFO_KEY = "dd:show-git-info";
 const PROJECT_OVERRIDE_PREFIX = "dd:project:";
 
 const SUPPORTED_LOCALES = ["en", "ru"];
@@ -22,6 +23,9 @@ const TRANSLATIONS = {
     headerTitle: "DD",
     headerSubtitle: "Dashboard of Dashboards",
     languageSwitcher: "Language switcher",
+    gitToggleLabel: "Git",
+    gitToggleOn: "Git info is visible",
+    gitToggleOff: "Git info is hidden",
     reload: "Refresh",
     reloading: "Refreshing…",
     reloadDone: "Done",
@@ -60,8 +64,12 @@ const TRANSLATIONS = {
     noScript: "This dashboard requires JavaScript.",
     projectMetaSaved: "Project meta updated",
     notesSectionLabel: "Notes",
-    notePlaceholder: "add a note…",
-    noteHint: "[ ] todo  [x] done  - bullet  · Cmd/Ctrl+Enter=save  Esc=cancel",
+    notePlaceholder: "add a checklist item…",
+    noteAllDone: "all items are done",
+    noteDoneToggle: ({ count }) => `Done (${count})`,
+    summaryExpand: "Expand",
+    summaryCollapse: "Collapse",
+    noteHint: "[ ] todo  [x] done  · Cmd/Ctrl+Enter=save  Esc=cancel",
     noteSaved: "Saved",
     noteEditAction: "Edit",
     noteAddTodoAction: "+ Todo",
@@ -147,6 +155,9 @@ const TRANSLATIONS = {
     headerTitle: "DD",
     headerSubtitle: "Дашборд дашбордов",
     languageSwitcher: "Переключатель языка",
+    gitToggleLabel: "Git",
+    gitToggleOn: "Git-информация показана",
+    gitToggleOff: "Git-информация скрыта",
     reload: "Обновить",
     reloading: "Обновляю…",
     reloadDone: "Готово",
@@ -185,8 +196,12 @@ const TRANSLATIONS = {
     noScript: "Для дашборда нужен JavaScript.",
     projectMetaSaved: "Параметры проекта обновлены",
     notesSectionLabel: "Заметки",
-    notePlaceholder: "добавить заметку…",
-    noteHint: "[ ] todo  [x] done  - пункт  · Cmd/Ctrl+Enter=сохранить  Esc=отмена",
+    notePlaceholder: "добавить пункт чеклиста…",
+    noteAllDone: "все пункты выполнены",
+    noteDoneToggle: ({ count }) => `Сделано (${count})`,
+    summaryExpand: "Развернуть",
+    summaryCollapse: "Свернуть",
+    noteHint: "[ ] todo  [x] done  · Cmd/Ctrl+Enter=сохранить  Esc=отмена",
     noteSaved: "Сохранено",
     noteEditAction: "Изменить",
     noteAddTodoAction: "+ Todo",
@@ -279,9 +294,12 @@ const state = {
   searchQuery: "",
   currentSort: "default",
   locale: "en",
+  showGitInfo: true,
   latestData: null,
   generatedAt: null,
   reloadState: "idle",
+  noteDoneOpen: {},
+  roadmapOpen: {},
 };
 
 const els = {};
@@ -299,6 +317,7 @@ function initializeElements() {
   els.headerSubtitle = document.getElementById("headerSubtitle");
   els.localeToggle = document.getElementById("localeToggle");
   els.localeButtons = Array.from(document.querySelectorAll("#localeToggle .locale-btn"));
+  els.gitToggle = document.getElementById("gitToggle");
   els.timestamp = document.getElementById("timestamp");
   els.reloadBtn = document.getElementById("reloadBtn");
   els.savedViews = document.getElementById("savedViews");
@@ -378,10 +397,13 @@ function getPrimaryStatus(project) {
   if (project.project_state === "waiting") return { label: t("primaryWaiting"), kind: "info" };
   if (project.project_state === "paused") return { label: t("primaryPaused"), kind: "muted" };
   if (project.project_state === "maintenance") return { label: t("primaryMaintenance"), kind: "muted" };
-  if (project.behind > 0) return { label: t("primaryBehind", { count: project.behind }), kind: "danger" };
+  const roadmapLabel = roadmapIssueLabel(project);
+  if (roadmapLabel) return { label: roadmapLabel, kind: "danger" };
   if (project.roadmap?.pending?.length) {
     return { label: t("primaryPending", { count: project.roadmap.pending.length }), kind: "warn" };
   }
+  if (!state.showGitInfo) return { label: t("primaryHealthy"), kind: "ok" };
+  if (project.behind > 0) return { label: t("primaryBehind", { count: project.behind }), kind: "danger" };
   if (project.total_changes > 0) {
     return { label: t("primaryChanges", { count: project.total_changes }), kind: "warn" };
   }
@@ -414,6 +436,7 @@ function getAttentionScore(project) {
 function statusColor(project) {
   if (project.status === "missing_path") return "problem";
   if (!project.is_git) return "gray";
+  if (!state.showGitInfo) return "gray";
   if (project.total_changes === 0) return "green";
   if (project.total_changes <= 10) return "yellow";
   return "red";
@@ -454,6 +477,14 @@ function updateLocaleButtons() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function updateGitToggle() {
+  const active = Boolean(state.showGitInfo);
+  els.gitToggle.textContent = t("gitToggleLabel");
+  els.gitToggle.classList.toggle("active", active);
+  els.gitToggle.setAttribute("aria-pressed", String(active));
+  els.gitToggle.title = active ? t("gitToggleOn") : t("gitToggleOff");
 }
 
 function savedViewLabel(view) {
@@ -534,6 +565,15 @@ function persistLocalePreference() {
   localStorage.setItem(LOCALE_KEY, state.locale);
 }
 
+function loadShowGitInfoPreference() {
+  const stored = localStorage.getItem(SHOW_GIT_INFO_KEY);
+  state.showGitInfo = stored === null ? true : stored !== "false";
+}
+
+function persistShowGitInfoPreference() {
+  localStorage.setItem(SHOW_GIT_INFO_KEY, String(Boolean(state.showGitInfo)));
+}
+
 function projectOverrideKey(id) {
   return PROJECT_OVERRIDE_PREFIX + id;
 }
@@ -575,8 +615,9 @@ function getNote(id) {
 }
 
 function saveNote(id, text) {
-  if (text.trim()) {
-    localStorage.setItem(NOTES_PREFIX + id, text);
+  const normalized = normalizeNoteValue(text);
+  if (normalized.trim()) {
+    localStorage.setItem(NOTES_PREFIX + id, normalized);
   } else {
     localStorage.removeItem(NOTES_PREFIX + id);
   }
@@ -981,98 +1022,147 @@ function buildTechFilters() {
   });
 }
 
-function parseNoteLines(raw) {
-  return (raw || "").split("\n").map((line) => {
-    const checkbox = line.match(/^(\s*)(?:[-*]\s+)?\[([ xX]?)\]\s*(.*)/);
-    if (checkbox) {
-      const stateValue = checkbox[2].toLowerCase();
-      return {
-        type: "checkbox",
-        checked: stateValue === "x",
-        label: checkbox[3].trim(),
-        indent: checkbox[1].length > 0,
-      };
-    }
+function normalizeNoteItems(raw) {
+  return (raw || "")
+    .split("\n")
+    .map((line) => {
+      const checkbox = line.match(/^\s*(?:[-*]\s+)?\[([ xX]?)\]\s*(.*)$/);
+      if (checkbox) {
+        const label = checkbox[2].trim();
+        if (!label) return null;
+        return { checked: checkbox[1].toLowerCase() === "x", label };
+      }
 
-    const bullet = line.match(/^(\s*)[-*]\s+(.*)/);
-    if (bullet) return { type: "bullet", label: bullet[2], indent: bullet[1].length > 0 };
-    return { type: "text", label: line };
-  });
+      const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+      const label = (bullet ? bullet[1] : line).trim();
+      if (!label) return null;
+      return { checked: false, label };
+    })
+    .filter(Boolean);
 }
 
-function toggleCheckbox(raw, lineIndex) {
-  const lines = raw.split("\n");
-  lines[lineIndex] = lines[lineIndex].replace(
-    /^(\s*(?:[-*]\s+)?\[)([ xX]?)(\]\s*.*)/,
-    (_, prefix, stateValue, suffix) => prefix + (stateValue.toLowerCase() === "x" ? " " : "x") + suffix,
-  );
-  return lines.join("\n");
+function serializeNoteItems(items) {
+  const active = items.filter((item) => !item.checked);
+  const done = items.filter((item) => item.checked);
+  return [...active, ...done].map((item) => `[${item.checked ? "x" : " "}] ${item.label}`).join("\n");
+}
+
+function normalizeNoteValue(raw) {
+  return serializeNoteItems(normalizeNoteItems(raw));
+}
+
+function toggleCheckbox(raw, itemIndex) {
+  const items = normalizeNoteItems(raw);
+  if (!items[itemIndex]) return serializeNoteItems(items);
+  items[itemIndex] = { ...items[itemIndex], checked: !items[itemIndex].checked };
+  return serializeNoteItems(items);
+}
+
+function renderChecklistList(items, { interactive = false, project = null, rendered = null } = {}) {
+  const list = document.createElement("ul");
+  list.className = "note-list";
+
+  items.forEach((item) => {
+    const listItem = document.createElement("li");
+    listItem.className = "note-item";
+    if (item.checked) listItem.classList.add("checked");
+
+    if (interactive) {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = item.checked;
+      checkbox.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const updated = toggleCheckbox(resolveNote(project), item.index);
+        saveNote(project.id, updated);
+        renderNoteContent(rendered, project);
+      });
+      listItem.appendChild(checkbox);
+    } else {
+      const bullet = document.createElement("span");
+      bullet.className = "note-item-bullet";
+      bullet.textContent = item.checked ? "✓" : "·";
+      listItem.appendChild(bullet);
+    }
+
+    const label = document.createElement("span");
+    label.className = "note-item-label";
+    label.textContent = item.label;
+    listItem.appendChild(label);
+    list.appendChild(listItem);
+  });
+
+  return list;
+}
+
+function buildCaretSummary(label, open, onToggle, extraClass = "") {
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = `caret-summary${extraClass ? ` ${extraClass}` : ""}`;
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.title = open ? t("summaryCollapse") : t("summaryExpand");
+
+  const caret = document.createElement("span");
+  caret.className = `caret-summary-icon${open ? " open" : ""}`;
+  caret.textContent = "▸";
+
+  const text = document.createElement("span");
+  text.className = "caret-summary-label";
+  text.textContent = label;
+
+  toggle.appendChild(caret);
+  toggle.appendChild(text);
+  toggle.addEventListener("click", onToggle);
+  return toggle;
 }
 
 function renderNoteContent(rendered, project) {
-  const raw = resolveNote(project);
-  if (!raw.trim()) {
-    rendered.innerHTML = "";
+  const items = normalizeNoteItems(resolveNote(project)).map((item, index) => ({ ...item, index }));
+  const activeItems = items.filter((item) => !item.checked);
+  const doneItems = items.filter((item) => item.checked);
+
+  rendered.innerHTML = "";
+
+  if (!items.length) {
     rendered.textContent = t("notePlaceholder");
     rendered.classList.add("empty");
     return;
   }
 
   rendered.classList.remove("empty");
-  const lines = parseNoteLines(raw);
-  const list = document.createElement("ul");
-  list.className = "note-list";
 
-  lines.forEach((item, lineIndex) => {
-    if (item.type === "text") {
-      if (!item.label.trim()) return;
-      const listItem = document.createElement("li");
-      listItem.className = "note-item";
-      const text = document.createElement("span");
-      text.className = "note-plain-line";
-      text.textContent = item.label;
-      listItem.appendChild(text);
-      list.appendChild(listItem);
-      return;
-    }
+  if (activeItems.length) {
+    rendered.appendChild(renderChecklistList(activeItems, { interactive: true, project, rendered }));
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "note-all-done";
+    empty.textContent = t("noteAllDone");
+    rendered.appendChild(empty);
+  }
 
-    const listItem = document.createElement("li");
-    listItem.className = "note-item";
-    if (item.indent) listItem.classList.add("indent");
-    if (item.checked) listItem.classList.add("checked");
+  if (!doneItems.length) return;
 
-    if (item.type === "checkbox") {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = item.checked;
-      checkbox.addEventListener("click", (event) => {
+  const doneOpen = Boolean(state.noteDoneOpen[project.id]);
+  const doneSection = document.createElement("div");
+  doneSection.className = "note-done";
+  doneSection.appendChild(
+    buildCaretSummary(
+      t("noteDoneToggle", { count: doneItems.length }),
+      doneOpen,
+      (event) => {
         event.stopPropagation();
-        const updated = toggleCheckbox(resolveNote(project), lineIndex);
-        saveNote(project.id, updated);
+        state.noteDoneOpen[project.id] = !doneOpen;
         renderNoteContent(rendered, project);
-      });
+      },
+      "note-done-toggle",
+    ),
+  );
 
-      const label = document.createElement("span");
-      label.className = "note-item-label";
-      label.textContent = item.label;
-      listItem.appendChild(checkbox);
-      listItem.appendChild(label);
-    } else {
-      const bullet = document.createElement("span");
-      bullet.className = "note-item-bullet";
-      bullet.textContent = "·";
-      const label = document.createElement("span");
-      label.className = "note-item-label";
-      label.textContent = item.label;
-      listItem.appendChild(bullet);
-      listItem.appendChild(label);
-    }
+  if (doneOpen) {
+    doneSection.appendChild(renderChecklistList(doneItems, { interactive: false }));
+  }
 
-    list.appendChild(listItem);
-  });
-
-  rendered.innerHTML = "";
-  rendered.appendChild(list);
+  rendered.appendChild(doneSection);
 }
 
 function autosizeTextarea(textarea) {
@@ -1081,7 +1171,8 @@ function autosizeTextarea(textarea) {
 }
 
 function appendTodoLine(raw) {
-  const prefix = raw.trim() ? `${raw.replace(/\s*$/, "")}\n` : "";
+  const normalized = normalizeNoteValue(raw);
+  const prefix = normalized ? `${normalized}\n` : "";
   return `${prefix}[ ] `;
 }
 
@@ -1125,7 +1216,7 @@ function buildNoteWidget(project) {
 
     const textarea = document.createElement("textarea");
     textarea.className = "note-textarea";
-    textarea.value = options.prefill ?? resolveNote(project);
+    textarea.value = options.prefill ?? normalizeNoteValue(resolveNote(project));
 
     const hint = document.createElement("div");
     hint.className = "note-hint";
@@ -1238,6 +1329,7 @@ function roadmapIssueLabel(project) {
 }
 
 function buildAttentionItems(project) {
+  if (!state.showGitInfo) return [];
   const items = [];
 
   if (project.status === "missing_path") {
@@ -1277,6 +1369,8 @@ function buildStatsHtml(project) {
     return `<div class="no-git">${esc(t("noGitLine"))}</div>`;
   }
 
+  if (!state.showGitInfo) return "";
+
   let html = "";
   if (project.total_changes === 0) {
     html += `<div class="stat-changes clean">${esc(t("workingTreeClean"))}</div>`;
@@ -1303,30 +1397,60 @@ function buildStatsHtml(project) {
   return html;
 }
 
-function buildRoadmapHtml(project) {
-  if (!project.roadmap) return "";
+function renderRoadmapContent(wrapper, project) {
   const roadmap = project.roadmap;
-  const percent = roadmap.total > 0 ? Math.round((roadmap.done / roadmap.total) * 100) : 0;
+  if (!roadmap) return;
+  const roadmapOpen = Boolean(state.roadmapOpen[project.id]);
+  wrapper.innerHTML = "";
+  wrapper.className = `roadmap${roadmapOpen ? " open" : ""}`;
+
+  wrapper.appendChild(
+    buildCaretSummary(
+      roadmap.section,
+      roadmapOpen,
+      (event) => {
+        event.stopPropagation();
+        state.roadmapOpen[project.id] = !roadmapOpen;
+        renderRoadmapContent(wrapper, project);
+      },
+      "roadmap-toggle",
+    ),
+  );
+
+  const count = document.createElement("span");
+  count.className = "roadmap-count";
+  count.textContent = `${roadmap.done}/${roadmap.total}`;
+  wrapper.querySelector(".roadmap-toggle").appendChild(count);
+
+  if (!roadmapOpen) return;
+
   const previewItems = roadmap.pending.slice(0, 1);
   const hiddenCount = Math.max(roadmap.pending.length - previewItems.length, 0);
-  const pendingPreviewHtml = previewItems.length
-    ? `<ul class="pending-items pending-items-preview${hiddenCount ? " has-overflow" : ""}">${previewItems
-        .map((item) => `<li class="pending-item">${esc(item)}</li>`)
-        .join("")}</ul>`
-    : "";
-  const moreHtml = hiddenCount ? `<div class="roadmap-more">${esc(t("roadmapMore", { count: hiddenCount }))}</div>` : "";
 
-  return `
-    <div class="roadmap">
-      <div class="roadmap-header">
-        <span class="roadmap-label">${esc(roadmap.section)}</span>
-        <span class="roadmap-count">${roadmap.done}/${roadmap.total}</span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
-      ${pendingPreviewHtml}
-      ${moreHtml}
-    </div>
-  `;
+  if (previewItems.length) {
+    const list = document.createElement("ul");
+    list.className = `pending-items pending-items-preview${hiddenCount ? " has-overflow" : ""}`;
+    previewItems.forEach((item) => {
+      const listItem = document.createElement("li");
+      listItem.className = "pending-item";
+      listItem.textContent = item;
+      list.appendChild(listItem);
+    });
+    wrapper.appendChild(list);
+  }
+
+  if (hiddenCount) {
+    const more = document.createElement("div");
+    more.className = "roadmap-more";
+    more.textContent = t("roadmapMore", { count: hiddenCount });
+    wrapper.appendChild(more);
+  }
+}
+
+function buildRoadmapSection(project) {
+  const wrapper = document.createElement("div");
+  renderRoadmapContent(wrapper, project);
+  return wrapper;
 }
 
 function buildActions(project) {
@@ -1516,7 +1640,7 @@ function buildCard(project, index, archived = false) {
   const primaryStatus = getPrimaryStatus(project);
 
   let metaHtml = "";
-  if (project.is_git && project.branch) {
+  if (state.showGitInfo && project.is_git && project.branch) {
     let pills = "";
     if (project.has_upstream) {
       if (project.ahead > 0) pills += `<span class="meta-pill ahead-pill">↑${project.ahead}</span>`;
@@ -1537,9 +1661,12 @@ function buildCard(project, index, archived = false) {
     .map((tech) => `<span class="tech-tag" data-tech="${esc(tech)}">${esc(tech)}</span>`)
     .join("");
 
-  const attentionHtml = buildAttentionHtml(project);
+  const attentionHtml = state.showGitInfo ? buildAttentionHtml(project) : "";
   const identityBadges = buildProjectIdentityBadges(project, archived);
   const pinControl = buildPinControl(project).outerHTML;
+  const statsHtml = buildStatsHtml(project);
+  const attentionBlock = attentionHtml ? `<div class="attention-row">${attentionHtml}</div>` : "";
+  const statsBlock = statsHtml ? `<div>${statsHtml}</div>` : "";
 
   card.innerHTML = `
     <div class="card-header">
@@ -1555,14 +1682,12 @@ function buildCard(project, index, archived = false) {
     <div class="card-desc">${esc(project.description)}</div>
     <div class="primary-status ${primaryStatus.kind}">${esc(primaryStatus.label)}</div>
     <div class="card-tech">${techTags}</div>
-    <div class="attention-row">${attentionHtml}</div>
-    <div>${buildStatsHtml(project)}</div>
+    ${attentionBlock}
+    ${statsBlock}
   `;
 
   if (project.roadmap) {
-    const secondary = document.createElement("div");
-    secondary.innerHTML = buildRoadmapHtml(project);
-    while (secondary.firstChild) card.appendChild(secondary.firstChild);
+    card.appendChild(buildRoadmapSection(project));
   }
   card.appendChild(buildActions(project));
   card.appendChild(buildNoteWidget(project));
@@ -1623,6 +1748,7 @@ function renderArchiveSection() {
 
 function applyLocaleToStaticUi() {
   updateLocaleButtons();
+  updateGitToggle();
   updateReloadButton();
   updateTimestamp();
   buildSavedViews();
@@ -1642,6 +1768,8 @@ function render(data) {
   const projects = data.projects.map(applyProjectOverrides);
   state.allProjects = projects.filter((project) => !project.archived);
   state.archivedProjects = projects.filter((project) => project.archived);
+  state.noteDoneOpen = {};
+  state.roadmapOpen = {};
 
   applyLocaleToStaticUi();
   els.grid.innerHTML = "";
@@ -1697,6 +1825,16 @@ function bindStaticEvents() {
     });
   });
 
+  els.gitToggle.addEventListener("click", () => {
+    state.showGitInfo = !state.showGitInfo;
+    persistShowGitInfoPreference();
+    if (state.latestData) {
+      rerenderCurrentView();
+    } else {
+      updateGitToggle();
+    }
+  });
+
   els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeStatus = button.dataset.filter;
@@ -1737,6 +1875,7 @@ function bindStaticEvents() {
 async function initializeApp() {
   initializeElements();
   loadLocalePreference();
+  loadShowGitInfoPreference();
   loadViewState();
   applyLocaleToStaticUi();
   bindStaticEvents();
