@@ -297,15 +297,13 @@ header h1 {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
-.filter-group-views .filter-btn {
-  min-height: 28px;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.filter-btn-view:not(.active) {
-  background: color-mix(in srgb, var(--tag-bg) 58%, transparent);
-  color: color-mix(in srgb, var(--text-secondary) 84%, var(--text));
+.filter-inline-sep {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  padding: 0 2px;
+  user-select: none;
+  align-self: center;
 }
 
 .search-shell {
@@ -1370,7 +1368,6 @@ header h1 {
     width: 100%;
   }
 
-  .filter-group-views .filter-btn,
   .filter-group-status .filter-btn {
     flex: 1 1 auto;
     justify-content: center;

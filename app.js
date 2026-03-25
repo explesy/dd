@@ -8,13 +8,13 @@ const SUPPORTED_LOCALES = ["en", "ru"];
 
 const SORT_FOR = {
   all: "default",
-  work: "default",
   dirty: "changes",
   stale: "date",
   clean: "name",
 };
 
-const SAVED_VIEWS = ["default", "pinned", "blocked", "waiting", "personal", "learn", "infra"];
+const CATEGORY_FILTERS = ["work", "personal", "learn", "infra", "pinned"];
+const GIT_STATUS_FILTERS = ["all", "dirty", "stale", "clean"];
 const PROJECT_TYPE_OPTIONS = ["work", "personal", "learn", "infra"];
 
 const TRANSLATIONS = {
@@ -34,18 +34,13 @@ const TRANSLATIONS = {
     filters: {
       all: "All",
       work: "Work",
-      dirty: "Dirty",
-      stale: "Stale",
-      clean: "Clean",
-    },
-    savedViews: {
-      default: "Default",
-      pinned: "Pinned",
-      blocked: "Blocked",
-      waiting: "Waiting",
       personal: "Personal",
       learn: "Learn",
       infra: "Infra",
+      pinned: "Pinned",
+      dirty: "Dirty",
+      stale: "Stale",
+      clean: "Clean",
     },
     searchPlaceholder: "Search by name, tech, notes…",
     searchAriaLabel: "Search projects",
@@ -166,18 +161,13 @@ const TRANSLATIONS = {
     filters: {
       all: "Все",
       work: "Работа",
-      dirty: "Грязные",
-      stale: "Старые",
-      clean: "Чистые",
-    },
-    savedViews: {
-      default: "Все",
-      pinned: "Закрепленные",
-      blocked: "Блокеры",
-      waiting: "Ожидание",
       personal: "Личное",
       learn: "Обучение",
       infra: "Инфра",
+      pinned: "Закреп.",
+      dirty: "Грязные",
+      stale: "Старые",
+      clean: "Чистые",
     },
     searchPlaceholder: "Поиск по имени, стеку, заметкам…",
     searchAriaLabel: "Поиск проектов",
@@ -288,8 +278,8 @@ const state = {
   allProjects: [],
   archivedProjects: [],
   archiveOpen: false,
-  activeView: "default",
-  activeStatus: "all",
+  activeCategory: null,
+  activeGitStatus: "all",
   activeTech: null,
   searchQuery: "",
   currentSort: "default",
@@ -320,7 +310,6 @@ function initializeElements() {
   els.gitToggle = document.getElementById("gitToggle");
   els.timestamp = document.getElementById("timestamp");
   els.reloadBtn = document.getElementById("reloadBtn");
-  els.savedViews = document.getElementById("savedViews");
   els.statusFilters = document.getElementById("statusFilters");
   els.techFilters = document.getElementById("techFilters");
   els.searchInput = document.getElementById("searchInput");
@@ -436,7 +425,6 @@ function getAttentionScore(project) {
 function statusColor(project) {
   if (project.status === "missing_path") return "problem";
   if (!project.is_git) return "gray";
-  if (!state.showGitInfo) return "gray";
   if (project.total_changes === 0) return "green";
   if (project.total_changes <= 10) return "yellow";
   return "red";
@@ -487,8 +475,8 @@ function updateGitToggle() {
   els.gitToggle.title = active ? t("gitToggleOn") : t("gitToggleOff");
 }
 
-function savedViewLabel(view) {
-  return TRANSLATIONS[state.locale].savedViews[view] || view;
+function filterLabel(key) {
+  return ((TRANSLATIONS[state.locale] || TRANSLATIONS.en).filters)[key] ?? key;
 }
 
 function updateSearchClearButton() {
@@ -500,21 +488,20 @@ function updateSearchClearButton() {
 
 function hasActiveFilters() {
   return (
-    state.activeView !== "default" ||
-    state.activeStatus !== "all" ||
+    state.activeCategory !== null ||
+    state.activeGitStatus !== "all" ||
     Boolean(state.activeTech) ||
     Boolean(state.searchQuery)
   );
 }
 
 function resetFiltersToDefault() {
-  state.activeView = "default";
-  state.activeStatus = "all";
+  state.activeCategory = null;
+  state.activeGitStatus = "all";
   state.activeTech = null;
   state.searchQuery = "";
   state.currentSort = "default";
-  buildSavedViews();
-  updateStatusButtons();
+  buildFilterButtons();
   buildTechFilters();
   els.searchInput.value = "";
   applyFilters();
@@ -532,14 +519,18 @@ function loadViewState() {
     const raw = localStorage.getItem(VIEW_STATE_KEY);
     if (!raw) return;
     const persisted = JSON.parse(raw);
-    state.activeView = SAVED_VIEWS.includes(persisted.activeView) ? persisted.activeView : "default";
-    state.activeStatus = persisted.activeStatus || "all";
+    state.activeCategory = CATEGORY_FILTERS.includes(persisted.activeCategory)
+      ? persisted.activeCategory
+      : null;
+    state.activeGitStatus = GIT_STATUS_FILTERS.includes(persisted.activeGitStatus)
+      ? persisted.activeGitStatus
+      : "all";
     state.activeTech = persisted.activeTech || null;
     state.searchQuery = persisted.searchQuery || "";
-    state.currentSort = SORT_FOR[state.activeStatus] || "default";
+    state.currentSort = SORT_FOR[state.activeGitStatus] || "default";
   } catch {
-    state.activeView = "default";
-    state.activeStatus = "all";
+    state.activeCategory = null;
+    state.activeGitStatus = "all";
   }
 }
 
@@ -547,8 +538,8 @@ function persistViewState() {
   localStorage.setItem(
     VIEW_STATE_KEY,
     JSON.stringify({
-      activeView: state.activeView,
-      activeStatus: state.activeStatus,
+      activeCategory: state.activeCategory,
+      activeGitStatus: state.activeGitStatus,
       activeTech: state.activeTech,
       searchQuery: state.searchQuery,
     }),
@@ -838,25 +829,6 @@ function applySortToGrid() {
   });
 }
 
-function matchesSavedView(project) {
-  switch (state.activeView) {
-    case "pinned":
-      return Boolean(project.pinned);
-    case "blocked":
-      return project.project_state === "blocked";
-    case "waiting":
-      return project.project_state === "waiting";
-    case "personal":
-      return project.project_type === "personal" || (!project.project_type && !project.work);
-    case "learn":
-      return project.project_type === "learn";
-    case "infra":
-      return project.project_type === "infra";
-    default:
-      return true;
-  }
-}
-
 function buildSearchHaystack(project) {
   const note = resolveNote(project);
   const roadmapItems = project.roadmap?.pending?.join(" ") || "";
@@ -878,11 +850,14 @@ function buildSearchHaystack(project) {
 }
 
 function matchesFilters(project) {
-  if (!matchesSavedView(project)) return false;
-  if (state.activeStatus === "work" && !project.work) return false;
-  if (state.activeStatus === "dirty" && project.total_changes === 0) return false;
-  if (state.activeStatus === "clean" && (project.total_changes > 0 || !project.is_git)) return false;
-  if (state.activeStatus === "stale" && !isStale(project)) return false;
+  if (state.activeCategory === "work" && !project.work) return false;
+  if (state.activeCategory === "personal" && !(project.project_type === "personal" || (!project.project_type && !project.work))) return false;
+  if (state.activeCategory === "learn" && project.project_type !== "learn") return false;
+  if (state.activeCategory === "infra" && project.project_type !== "infra") return false;
+  if (state.activeCategory === "pinned" && !project.pinned) return false;
+  if (state.activeGitStatus === "dirty" && project.total_changes === 0) return false;
+  if (state.activeGitStatus === "clean" && (project.total_changes > 0 || !project.is_git)) return false;
+  if (state.activeGitStatus === "stale" && !isStale(project)) return false;
   if (state.activeTech && !project.tech.includes(state.activeTech)) return false;
 
   if (state.searchQuery) {
@@ -958,34 +933,70 @@ const SORT_SUFFIX = {
   name:    " A–Z",
 };
 
-function buildSavedViews() {
-  els.savedViews.innerHTML = "";
-  SAVED_VIEWS.forEach((view) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "filter-btn filter-btn-view";
-    button.textContent = savedViewLabel(view);
-    const active = view === state.activeView;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-    button.addEventListener("click", () => {
-      state.activeView = view;
-      buildSavedViews();
+function buildFilterButtons() {
+  els.statusFilters.innerHTML = "";
+
+  // "All" — clears both category and git status
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = "filter-btn";
+  allBtn.dataset.filter = "all";
+  allBtn.textContent = filterLabel("all");
+  const allActive = state.activeCategory === null && state.activeGitStatus === "all";
+  allBtn.classList.toggle("active", allActive);
+  allBtn.setAttribute("aria-pressed", String(allActive));
+  allBtn.addEventListener("click", () => {
+    state.activeCategory = null;
+    state.activeGitStatus = "all";
+    state.currentSort = "default";
+    buildFilterButtons();
+    applyFilters();
+  });
+  els.statusFilters.appendChild(allBtn);
+
+  // Category buttons
+  CATEGORY_FILTERS.forEach((cat) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "filter-btn";
+    btn.dataset.filter = cat;
+    btn.textContent = filterLabel(cat);
+    const active = state.activeCategory === cat;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+    btn.addEventListener("click", () => {
+      state.activeCategory = state.activeCategory === cat ? null : cat;
+      buildFilterButtons();
       applyFilters();
     });
-    els.savedViews.appendChild(button);
+    els.statusFilters.appendChild(btn);
   });
-}
 
-function updateStatusButtons() {
-  els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
-    const filter = button.dataset.filter;
-    const label = TRANSLATIONS[state.locale].filters[filter];
-    const isActive = filter === state.activeStatus;
+  // Inline separator between category and git status groups
+  const sep = document.createElement("span");
+  sep.className = "filter-inline-sep";
+  sep.textContent = "·";
+  sep.setAttribute("aria-hidden", "true");
+  els.statusFilters.appendChild(sep);
+
+  // Git status buttons
+  GIT_STATUS_FILTERS.filter((f) => f !== "all").forEach((filter) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "filter-btn";
+    btn.dataset.filter = filter;
+    const isActive = filter === state.activeGitStatus;
     const suffix = isActive && state.currentSort !== "default" ? (SORT_SUFFIX[state.currentSort] ?? "") : "";
-    button.textContent = label + suffix;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
+    btn.textContent = filterLabel(filter) + suffix;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
+    btn.addEventListener("click", () => {
+      state.activeGitStatus = state.activeGitStatus === filter ? "all" : filter;
+      state.currentSort = SORT_FOR[state.activeGitStatus] || "default";
+      buildFilterButtons();
+      applyFilters();
+    });
+    els.statusFilters.appendChild(btn);
   });
 }
 
@@ -1706,18 +1717,9 @@ function buildCard(project, index, archived = false) {
     chip.addEventListener("click", (event) => {
       event.stopPropagation();
       const view = chip.dataset.view;
-      if (view === "work-filter") {
-        state.activeView = "default";
-        state.activeStatus = state.activeStatus === "work" ? "all" : "work";
-        state.currentSort = SORT_FOR[state.activeStatus] || "default";
-        buildSavedViews();
-        updateStatusButtons();
-        applyFilters();
-        return;
-      }
-
-      state.activeView = state.activeView === view ? "default" : view;
-      buildSavedViews();
+      const cat = view === "work-filter" ? "work" : view;
+      state.activeCategory = state.activeCategory === cat ? null : cat;
+      buildFilterButtons();
       applyFilters();
     });
   });
@@ -1751,8 +1753,7 @@ function applyLocaleToStaticUi() {
   updateGitToggle();
   updateReloadButton();
   updateTimestamp();
-  buildSavedViews();
-  updateStatusButtons();
+  buildFilterButtons();
   els.searchInput.placeholder = t("searchPlaceholder");
   els.searchInput.setAttribute("aria-label", t("searchAriaLabel"));
   els.searchClear.setAttribute("aria-label", t("clearSearchAction"));
@@ -1775,7 +1776,7 @@ function render(data) {
   els.grid.innerHTML = "";
   state.allProjects.forEach((project, index) => els.grid.appendChild(buildCard(project, index)));
 
-  buildSavedViews();
+  buildFilterButtons();
   buildTechFilters();
   els.searchInput.value = state.searchQuery;
   renderArchiveSection();
@@ -1835,14 +1836,7 @@ function bindStaticEvents() {
     }
   });
 
-  els.statusFilters.querySelectorAll(".filter-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.activeStatus = button.dataset.filter;
-      state.currentSort = SORT_FOR[state.activeStatus] || "default";
-      updateStatusButtons();
-      applyFilters();
-    });
-  });
+  buildFilterButtons();
 
   els.searchInput.addEventListener("input", (event) => {
     state.searchQuery = event.target.value.trim();
