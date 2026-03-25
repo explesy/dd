@@ -77,7 +77,7 @@ const TRANSLATIONS = {
     desktopActionFailure: ({ message }) => `Could not complete desktop action: ${message}`,
     copyPath: "Copy path",
     openFolder: "Folder",
-    openRoadmap: "Open roadmap",
+    moreActions: "More actions",
     archiveAction: "Archive",
     restoreAction: "Restore",
     pinAction: "Pin",
@@ -204,7 +204,7 @@ const TRANSLATIONS = {
     desktopActionFailure: ({ message }) => `Не удалось выполнить локальное действие: ${message}`,
     copyPath: "Скопировать путь",
     openFolder: "Папка",
-    openRoadmap: "Открыть roadmap",
+    moreActions: "Действия",
     archiveAction: "В архив",
     restoreAction: "Вернуть",
     pinAction: "Закрепить",
@@ -1513,18 +1513,6 @@ function buildActions(project) {
   });
   wrapper.appendChild(archiveButton);
 
-  if (project.roadmap?.path) {
-    const roadmapButton = document.createElement("button");
-    roadmapButton.type = "button";
-    roadmapButton.className = "card-action";
-    roadmapButton.textContent = t("openRoadmap");
-    roadmapButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openRoadmap(project);
-    });
-    wrapper.appendChild(roadmapButton);
-  }
-
   return wrapper;
 }
 
@@ -1640,6 +1628,7 @@ function buildCard(project, index, archived = false) {
       <div class="card-header-side">
         ${metaHtml}
         ${pinControl}
+        <button class="card-actions-toggle" type="button" aria-label="${esc(t("moreActions"))}">···</button>
       </div>
     </div>
     <div class="card-desc">${esc(project.description)}</div>
@@ -1649,9 +1638,6 @@ function buildCard(project, index, archived = false) {
     ${statsBlock}
   `;
 
-  if (project.roadmap) {
-    card.appendChild(buildRoadmapSection(project));
-  }
   card.appendChild(buildActions(project));
   card.appendChild(buildNoteWidget(project));
 
@@ -1669,6 +1655,14 @@ function buildCard(project, index, archived = false) {
 
   const renderedPinControl = card.querySelector(".card-pin-toggle");
   if (renderedPinControl) renderedPinControl.replaceWith(buildPinControl(project));
+
+  const actionsToggle = card.querySelector(".card-actions-toggle");
+  if (actionsToggle) {
+    actionsToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      card.classList.toggle("card--actions-open");
+    });
+  }
 
   return card;
 }

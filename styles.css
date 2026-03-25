@@ -83,13 +83,6 @@ header h1 {
   flex-wrap: wrap;
 }
 
-/* vertical rule between locale and data freshness block */
-.header-sep {
-  width: 1px;
-  height: 24px;
-  background: var(--border);
-  flex-shrink: 0;
-}
 
 /* timestamp + reload + locale grouped as a secondary controls unit */
 .header-data {
@@ -915,11 +908,29 @@ header h1 {
   transition: max-height 0.18s ease, opacity 0.15s, margin-top 0.15s;
 }
 
-.card:hover .card-actions,
-.card:focus-within .card-actions {
+.card--actions-open .card-actions {
   max-height: 80px;
   opacity: 1;
   margin-top: 12px;
+}
+
+.card-actions-toggle {
+  font-size: 0.9rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.card-actions-toggle:hover,
+.card--actions-open .card-actions-toggle {
+  color: var(--text-primary);
+  background: var(--tag-bg);
 }
 
 .card-action {
@@ -1348,11 +1359,6 @@ header h1 {
     gap: 8px;
   }
 
-  .header-sep {
-    display: none;
-  }
-
-  .btn-header-toggle,
   .header-data {
     width: 100%;
   }
@@ -1404,13 +1410,6 @@ header h1 {
 
   .card-meta {
     justify-content: flex-start;
-  }
-
-  .card-actions {
-    gap: 6px;
-    max-height: none;
-    opacity: 1;
-    margin-top: 12px;
   }
 
   .card-action,
