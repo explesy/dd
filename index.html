@@ -16,10 +16,7 @@
       <p class="header-subtitle" id="headerSubtitle">Dashboard of Dashboards</p>
     </div>
     <div class="header-right">
-      <div class="locale-toggle" id="localeToggle" aria-label="Language switcher">
-        <button class="locale-btn active" data-locale="en" type="button">EN</button>
-        <button class="locale-btn" data-locale="ru" type="button">RU</button>
-      </div>
+      <button class="locale-btn-single" id="localeToggle" type="button" aria-label="Language switcher">EN</button>
       <button class="btn btn-header-toggle active" id="gitToggle" type="button" aria-pressed="true">Git</button>
       <div class="header-sep"></div>
       <div class="header-data">
@@ -32,8 +29,6 @@
   <div class="filter-bar" id="filterBar">
     <div class="filter-lane filter-lane-controls">
       <div class="filter-group filter-group-status" id="statusFilters"></div>
-      <div class="filter-sep"></div>
-      <div class="filter-group filter-group-tech" id="techFilters"></div>
     </div>
     <div class="filter-lane filter-lane-search">
       <label class="search-shell" for="searchInput">

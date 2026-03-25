@@ -280,7 +280,6 @@ const state = {
   archiveOpen: false,
   activeCategory: null,
   activeGitStatus: "all",
-  activeTech: null,
   searchQuery: "",
   currentSort: "default",
   locale: "en",
@@ -306,12 +305,10 @@ function initializeElements() {
   els.headerTitle = document.getElementById("headerTitle");
   els.headerSubtitle = document.getElementById("headerSubtitle");
   els.localeToggle = document.getElementById("localeToggle");
-  els.localeButtons = Array.from(document.querySelectorAll("#localeToggle .locale-btn"));
   els.gitToggle = document.getElementById("gitToggle");
   els.timestamp = document.getElementById("timestamp");
   els.reloadBtn = document.getElementById("reloadBtn");
   els.statusFilters = document.getElementById("statusFilters");
-  els.techFilters = document.getElementById("techFilters");
   els.searchInput = document.getElementById("searchInput");
   els.searchClear = document.getElementById("searchClear");
   els.resultsCount = document.getElementById("resultsCount");
@@ -459,12 +456,9 @@ function updateLocaleButtons() {
   document.title = t("documentTitle");
   els.headerTitle.textContent = t("headerTitle");
   els.headerSubtitle.textContent = t("headerSubtitle");
+  els.localeToggle.textContent = state.locale.toUpperCase();
   els.localeToggle.setAttribute("aria-label", t("languageSwitcher"));
-  els.localeButtons.forEach((button) => {
-    const active = button.dataset.locale === state.locale;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
+  els.localeToggle.title = state.locale === "en" ? "Switch to Russian" : "Switch to English";
 }
 
 function updateGitToggle() {
@@ -490,7 +484,6 @@ function hasActiveFilters() {
   return (
     state.activeCategory !== null ||
     state.activeGitStatus !== "all" ||
-    Boolean(state.activeTech) ||
     Boolean(state.searchQuery)
   );
 }
@@ -498,11 +491,9 @@ function hasActiveFilters() {
 function resetFiltersToDefault() {
   state.activeCategory = null;
   state.activeGitStatus = "all";
-  state.activeTech = null;
   state.searchQuery = "";
   state.currentSort = "default";
   buildFilterButtons();
-  buildTechFilters();
   els.searchInput.value = "";
   applyFilters();
 }
@@ -525,7 +516,6 @@ function loadViewState() {
     state.activeGitStatus = GIT_STATUS_FILTERS.includes(persisted.activeGitStatus)
       ? persisted.activeGitStatus
       : "all";
-    state.activeTech = persisted.activeTech || null;
     state.searchQuery = persisted.searchQuery || "";
     state.currentSort = SORT_FOR[state.activeGitStatus] || "default";
   } catch {
@@ -540,7 +530,6 @@ function persistViewState() {
     JSON.stringify({
       activeCategory: state.activeCategory,
       activeGitStatus: state.activeGitStatus,
-      activeTech: state.activeTech,
       searchQuery: state.searchQuery,
     }),
   );
@@ -858,7 +847,6 @@ function matchesFilters(project) {
   if (state.activeGitStatus === "dirty" && project.total_changes === 0) return false;
   if (state.activeGitStatus === "clean" && (project.total_changes > 0 || !project.is_git)) return false;
   if (state.activeGitStatus === "stale" && !isStale(project)) return false;
-  if (state.activeTech && !project.tech.includes(state.activeTech)) return false;
 
   if (state.searchQuery) {
     const query = state.searchQuery.toLowerCase();
@@ -1000,38 +988,6 @@ function buildFilterButtons() {
   });
 }
 
-function buildTechFilters() {
-  const counts = {};
-  state.allProjects.forEach((project) => {
-    project.tech.forEach((tech) => {
-      counts[tech] = (counts[tech] || 0) + 1;
-    });
-  });
-
-  if (state.activeTech && !counts[state.activeTech]) {
-    state.activeTech = null;
-  }
-
-  const topTech = Object.entries(counts)
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 6)
-    .map(([tech]) => tech);
-
-  els.techFilters.innerHTML = "";
-  topTech.forEach((tech) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "filter-btn";
-    button.textContent = tech;
-    button.classList.toggle("active", tech === state.activeTech);
-    button.addEventListener("click", () => {
-      state.activeTech = state.activeTech === tech ? null : tech;
-      buildTechFilters();
-      applyFilters();
-    });
-    els.techFilters.appendChild(button);
-  });
-}
 
 function normalizeNoteItems(raw) {
   return (raw || "")
@@ -1346,7 +1302,6 @@ function buildAttentionItems(project) {
   if (project.status === "missing_path") {
     items.push({ label: t("pathNotFound"), kind: "danger" });
   } else {
-    if (!project.is_git) items.push({ label: t("noGitShort"), kind: "muted" });
     if (project.is_git && !project.has_upstream) items.push({ label: t("noUpstream"), kind: "warn" });
     if (project.ahead > 0) items.push({ label: t("aheadLocal", { count: project.ahead }), kind: "info" });
     if (project.behind > 0) items.push({ label: t("behindRemote", { count: project.behind }), kind: "danger" });
@@ -1376,16 +1331,12 @@ function buildStatsHtml(project) {
     `;
   }
 
-  if (!project.is_git) {
-    return `<div class="no-git">${esc(t("noGitLine"))}</div>`;
-  }
+  if (!project.is_git) return "";
 
   if (!state.showGitInfo) return "";
 
   let html = "";
-  if (project.total_changes === 0) {
-    html += `<div class="stat-changes clean">${esc(t("workingTreeClean"))}</div>`;
-  } else {
+  if (project.total_changes > 0) {
     const parts = [];
     if (project.modified > 0) parts.push(t("modifiedCount", { count: project.modified }));
     if (project.untracked > 0) parts.push(t("untrackedCount", { count: project.untracked }));
@@ -1703,15 +1654,6 @@ function buildCard(project, index, archived = false) {
   card.appendChild(buildActions(project));
   card.appendChild(buildNoteWidget(project));
 
-  card.querySelectorAll(".tech-tag").forEach((tag) => {
-    tag.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const tech = tag.dataset.tech;
-      state.activeTech = state.activeTech === tech ? null : tech;
-      buildTechFilters();
-      applyFilters();
-    });
-  });
 
   card.querySelectorAll(".chip-action[data-view]").forEach((chip) => {
     chip.addEventListener("click", (event) => {
@@ -1777,7 +1719,6 @@ function render(data) {
   state.allProjects.forEach((project, index) => els.grid.appendChild(buildCard(project, index)));
 
   buildFilterButtons();
-  buildTechFilters();
   els.searchInput.value = state.searchQuery;
   renderArchiveSection();
   applyFilters();
@@ -1813,17 +1754,14 @@ function bindStaticEvents() {
     softReload();
   });
 
-  els.localeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      if (button.dataset.locale === state.locale) return;
-      state.locale = button.dataset.locale;
-      persistLocalePreference();
-      if (state.latestData) {
-        rerenderCurrentView();
-      } else {
-        applyLocaleToStaticUi();
-      }
-    });
+  els.localeToggle.addEventListener("click", () => {
+    state.locale = SUPPORTED_LOCALES.find((l) => l !== state.locale) ?? "en";
+    persistLocalePreference();
+    if (state.latestData) {
+      rerenderCurrentView();
+    } else {
+      applyLocaleToStaticUi();
+    }
   });
 
   els.gitToggle.addEventListener("click", () => {

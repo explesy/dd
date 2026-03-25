@@ -170,8 +170,7 @@ test("page serves split assets and normalized data contract with empty config", 
     assert.match(html, /favicon\.png/);
     assert.doesNotMatch(html, /attentionSection/);
     assert.doesNotMatch(html, /attentionGrid/);
-    assert.match(html, /data-locale="en"/);
-    assert.match(html, /data-locale="ru"/);
+    assert.match(html, /locale-btn-single/);
     assert.doesNotMatch(html, /All projects/);
     assert.doesNotMatch(html, /Full inventory with filters and search\./);
 
