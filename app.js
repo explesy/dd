@@ -1145,7 +1145,8 @@ function appendTodoLine(raw) {
 
 function buildNoteWidget(project) {
   const wrapper = document.createElement("div");
-  wrapper.className = "card-note";
+  const noteIsEmpty = normalizeNoteItems(resolveNote(project)).length === 0;
+  wrapper.className = noteIsEmpty ? "card-note card-note--empty" : "card-note";
 
   const header = document.createElement("div");
   header.className = "card-note-header";
