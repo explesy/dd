@@ -9,7 +9,6 @@ DD collects git status, roadmap progress, and per-project notes, then renders ev
 - Local-only by design
 - No build step
 - No remote sync or multi-user mode
-- Roadmap files are opened by the local DD server on your machine
 
 ## Quick Start
 
@@ -66,6 +65,8 @@ Supported roadmap modes:
 - `next_steps`: parses ordered or unordered list items
 - `phase_status`: parses headings marked with `✅` or `⬜`
 
+Roadmap data is collected and surfaced as a compact one-line status on the card (e.g., "4 tasks pending").
+
 `notes.json` is optional. If you want a tracked local seed file for notes, copy `notes.example.json` to `notes.json`. Browser edits still live in `localStorage`.
 
 Optional project fields:
@@ -76,32 +77,34 @@ Optional project fields:
 - `archived`: starts a project in the archive section
 - `stale_days`: custom stale threshold for that project
 
-Saved view behavior:
+Filter behavior:
 
-- `Personal` includes projects explicitly marked with `"project_type": "personal"`
-- If `project_type` is not set, `Personal` also includes projects where `"work"` is not `true`
+- `Work` matches projects where `"work": true` or `"project_type": "work"`
+- `Personal` includes projects explicitly marked with `"project_type": "personal"`, or where `"work"` is not `true` and `project_type` is not set
 - `Learn` includes projects with `"project_type": "learn"`
 - `Infra` includes projects with `"project_type": "infra"`
+- `Pinned` includes projects marked as pinned (in config or via UI override)
+- Category filters (Work/Personal/Learn/Infra/Pinned) and git state filters (Dirty/Stale/Clean) combine with AND logic
 
 Local UI overrides:
 
-- `pinned`, `archived`, `project_state`, and `project_type` can all be changed from the dashboard UI
+- `pinned`, `archived`, `project_state`, and `project_type` can all be changed from the dashboard UI via the `···` button on each card
 - those changes are stored in browser `localStorage`
 - they do not rewrite `projects.json`
 
 ## Features
 
 - Git overview: branch, upstream status, ahead/behind, stash count, and working tree changes
-- Roadmap parsing: progress bar plus a compact pending preview
+- Roadmap status: compact one-line summary derived from roadmap file parsing
 - Notes: checklist-only notes with inline editing and a separate `Done` archive inside each card
 - Manual project framing: state, type, and pinning
 - Automatic prioritization: important projects rise toward the top by default, and `pinned` keeps manual priorities visible
-- Local project controls: each card can be pinned, moved into/out of archive, and given local state/type overrides in the UI, stored in browser localStorage
+- Local project controls: each card exposes state/type selectors, folder opener, copy path, and archive via a `···` click toggle; stored in browser localStorage
 - Global display controls: header-level `Git` toggle hides or shows git-derived card information and is stored in browser localStorage
-- Filters and views: saved views, status filters, top tech tags, text search, archive section
+- Filters: unified filter row with category filters (Work/Personal/Learn/Infra/Pinned), git state filters (Dirty/Stale/Clean), and text search
 - Localization: English and Russian UI with browser-based default and manual toggle
 - Local refresh: `POST /refresh` plus manual refresh button and keyboard shortcut
-- Local desktop handoff: folder and roadmap actions run through local server endpoints
+- Local desktop handoff: folder open runs through a local server endpoint
 
 ## Files
 
@@ -226,5 +229,4 @@ Ask me before writing anything. Show the full proposed projects.json first.
 - If `projects.json` is missing, copy `projects.example.json` to `projects.json` and add your local project paths.
 - If you want a seed notes file, copy `notes.example.json` to `notes.json`; otherwise you can skip it.
 - If refresh does not work from the page, make sure the dashboard is running through `serve.py`, not a generic static server.
-- If roadmap opening does not work, make sure the dashboard is running through `serve.py` and that the configured roadmap path points to a real local file.
 - If the favicon does not update immediately, force-refresh the tab because browsers cache favicons aggressively.
